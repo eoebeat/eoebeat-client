@@ -1,4 +1,4 @@
-import { View, StyleSheet, Platform } from 'react-native'
+import { View, StyleSheet } from 'react-native'
 import React, { useEffect } from 'react'
 import Player from './player/Player'
 import StartScreen from './StartScreen'
@@ -6,11 +6,12 @@ import {
   selectFinishedSetup,
   setFinishedSetup,
   selectBottomPosition,
-  setTrackRepeatMode
+  setTrackRepeatMode,
+  selectTrackRepeatMode
 } from '../store/slices/playerSlice'
 import { useSelector, useDispatch } from 'react-redux'
 import TrackPlayer, { RepeatMode } from 'react-native-track-player'
-import { Colors, DEVICE_LOGIC_HEIGHT } from '../styles/Styles'
+import { Colors } from '../styles/Styles'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import Home from './home/Home'
 import Search from './search/Search'
@@ -39,10 +40,6 @@ const HomeStack = () => (
       component={Collection}
       options={{
         headerShown: false
-        // headerBackTitleVisible: false,
-        // headerBackTitle: '',
-        // headerTransparent: true,
-        // headerTitle: ''
       }}
     />
   </Stack.Navigator>
@@ -52,6 +49,7 @@ const Main = () => {
   const finishedSetup = useSelector(selectFinishedSetup)
   const dispatch = useDispatch()
   const playerBottomPosition = useSelector(selectBottomPosition)
+  const trackRepeatMode = useSelector(selectTrackRepeatMode)
 
   useEffect(() => {
     const setupTrackplayer = async () => {
@@ -59,23 +57,9 @@ const Main = () => {
       console.log(allKeys)
       try {
         if (!finishedSetup) {
-          await TrackPlayer.setupPlayer({ maxBuffer: 150 })
+          await TrackPlayer.setupPlayer({})
           await TrackPlayer.updateOptions({ progressUpdateEventInterval: 1 })
-          // repeatMode后续要从本地缓存里取，然后传给TrackPlayer
-          // 现在默认是Queue（列表循环）
-          await TrackPlayer.setRepeatMode(RepeatMode.Queue)
-          const repeatMode = await TrackPlayer.getRepeatMode()
-          switch (repeatMode) {
-            case RepeatMode.Off:
-              dispatch(setTrackRepeatMode(TrackRepeatMode.Off))
-              break
-            case RepeatMode.Track:
-              dispatch(setTrackRepeatMode(TrackRepeatMode.Track))
-              break
-            case RepeatMode.Queue:
-              dispatch(setTrackRepeatMode(TrackRepeatMode.Queue))
-              break
-          }
+          await TrackPlayer.setRepeatMode(trackRepeatMode)
         }
         dispatch(setFinishedSetup(true))
       } catch (e) {

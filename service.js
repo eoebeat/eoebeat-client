@@ -1,6 +1,7 @@
 // service.js
 import TrackPlayer, { Event, RepeatMode } from 'react-native-track-player'
-import { setCurrentTrack } from './src/store/slices/playerSlice'
+import MusicService from './src/services/music.service'
+import { setCurrentProgress, setCurrentTrack } from './src/store/slices/playerSlice'
 import { store } from './src/store/store'
 
 module.exports = async function () {
@@ -30,8 +31,16 @@ module.exports = async function () {
      */
     TrackPlayer.addEventListener(Event.PlaybackTrackChanged, async (param) => {
       try {
-        const nextTrackObject = await TrackPlayer.getTrack(param.nextTrack)
-        store.dispatch(setCurrentTrack(nextTrackObject))
+        if (param.nextTrack !== undefined) {
+          const nextTrackObject = await TrackPlayer.getTrack(param.nextTrack)
+
+          const currentTrack = store.getState().player.currentTrack
+          store.dispatch(setCurrentTrack(nextTrackObject))
+
+          if (currentTrack && nextTrackObject && currentTrack.id !== nextTrackObject.id) {
+            MusicService.sendHitInfo(nextTrackObject.id)
+          }
+        }
       } catch (e) {
         console.log(e)
       }
@@ -41,16 +50,19 @@ module.exports = async function () {
      * @param {track<number>, position<number>}
      *
      */
+    /** 
     TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async (param) => {
       try {
-        const repeatMode = await TrackPlayer.getRepeatMode()
-        if (repeatMode === RepeatMode.Off) {
-          const queue = await TrackPlayer.getQueue()
-          if (queue.length) await TrackPlayer.skip(0)
-        }
       } catch (e) {
         console.log(e)
       }
+    })
+    */
+
+    TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, async (params) => {
+      try {
+        store.dispatch(setCurrentProgress(params.position))
+      } catch (e) {}
     })
   } catch (error) {}
 }

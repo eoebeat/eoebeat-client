@@ -1,35 +1,36 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  StatusBar,
-  FlatList,
-  Pressable,
-  ImageBackground,
-  Platform
-} from 'react-native'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { View, Text, StyleSheet, StatusBar, FlatList, Pressable, Platform } from 'react-native'
+import React, { useEffect, useRef, useState } from 'react'
 import { COLLECTION_TYPE, COLLECTION_PAGE_SIZE, SEARCH_ORDER } from '../../constants/Shared'
 import MusicService from '../../services/music.service'
-import { searchMusicResultConvert } from '../../utils/shared'
+import { searchMusicResultConvert, shuffleArray } from '../../utils/shared'
 import { Colors } from '../../styles/Styles'
 import ImageHeaderScrollView, { TriggeringView } from 'react-native-image-header-scroll-view'
 import { DEVICE_LOGIC_WIDTH, WIDTH_RATIO } from '../../styles/Styles'
 import PlainMusicItem from '../common/PlainMusicItem'
-import { useSelector } from 'react-redux'
-import { selectCurrentTrack } from '../../store/slices/playerSlice'
+import { useDispatch, useSelector } from 'react-redux'
+import {
+  selectCurrentTrack,
+  setCurrentQueue,
+  setOriginalQueue,
+  selectOriginalQueue,
+  setLoadChangeTrack,
+  setTrackRepeatMode
+} from '../../store/slices/playerSlice'
 import Separator from '../common/Separator'
 import Footer from '../common/Footer'
 import { useSafeAreaInsets, initialWindowMetrics } from 'react-native-safe-area-context'
 import { Icon } from '@rneui/themed'
 import LinearGradient from 'react-native-linear-gradient'
 import * as Animatable from 'react-native-animatable'
+import FastImage from 'react-native-fast-image'
+import TrackPlayer, { usePlaybackState, State, RepeatMode } from 'react-native-track-player'
+import { TrackRepeatMode } from '../../constants/Player'
 
 const MIN_HEIGHT = Platform.OS === 'ios' ? 100 : 65
 const MAX_HEIGHT = 330
 
 const Collection = ({ route, navigation }) => {
-  const { type, label } = route.params
+  const { type, label, headerImageUrl, description, title } = route.params
   const [musicList, setMusicList] = useState([])
   const [page, setPage] = useState(0)
   const [totalNumMusic, setTotalNumMusic] = useState(0)
@@ -41,6 +42,9 @@ const Collection = ({ route, navigation }) => {
   const navTitleView = useRef(null)
   const backBtnView = useRef(null)
   const [searchOrder, setSearchOrder] = useState(SEARCH_ORDER.DateNewToOld)
+  const originalQueue = useSelector(selectOriginalQueue)
+  const playerState = usePlaybackState()
+  const dispatch = useDispatch()
 
   useEffect(() => {
     getFirstPageMusic()
@@ -112,36 +116,154 @@ const Collection = ({ route, navigation }) => {
     }
   }
 
-  const renderItem = ({ item }) => <PlainMusicItem track={item} itemPlaying={isItemPlaying(item)} />
+  const onPressItem = async (track) => {
+    try {
+      let playerQueue = await TrackPlayer.getQueue()
+      const idx = playerQueue.findIndex((element) => element.id === track.id)
+      const currentTrackIdx = await TrackPlayer.getCurrentTrack()
+
+      // 当前队列中没有歌曲
+      if (playerQueue.length === 0) {
+        await TrackPlayer.add(track)
+        dispatch(setLoadChangeTrack(true))
+        playerQueue = await TrackPlayer.getQueue()
+        dispatch(setCurrentQueue([...playerQueue]))
+        dispatch(setOriginalQueue([track, ...originalQueue]))
+        return
+      }
+
+      if (idx === -1) {
+        // 当前播放列表中没有此歌曲
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
+
+        await TrackPlayer.add(track, 0)
+        await TrackPlayer.skip(0)
+        dispatch(setLoadChangeTrack(true))
+
+        playerQueue = await TrackPlayer.getQueue()
+        dispatch(setCurrentQueue([...playerQueue]))
+        dispatch(setOriginalQueue([track, ...originalQueue]))
+      } else if (idx === currentTrackIdx) {
+        await TrackPlayer.seekTo(0)
+        if (playerState !== State.Playing) {
+          await TrackPlayer.play()
+        }
+      } else {
+        // 当前播放列表中已有此歌曲，且此歌曲未在播放
+        const length = playerQueue.length
+        while (playerQueue.length !== length - 1) {
+          playerQueue.forEach(async (value, index) => {
+            if (value.id === track.id) {
+              await TrackPlayer.remove(index)
+            }
+          })
+          playerQueue = await TrackPlayer.getQueue()
+        }
+
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
+
+        await TrackPlayer.add(track, 0)
+        await TrackPlayer.skip(0)
+        dispatch(setLoadChangeTrack(true))
+
+        playerQueue = await TrackPlayer.getQueue()
+        dispatch(setCurrentQueue([...playerQueue]))
+        dispatch(setOriginalQueue([track, ...originalQueue.filter((item) => item.id !== track.id)]))
+      }
+    } catch (e) {
+      console.log(e)
+    }
+  }
+
+  const onPressPlay = async () => {
+    try {
+      let res
+      if (type === COLLECTION_TYPE.Singer) {
+        res = await MusicService.searchMusic(label, { page: 0, size: 10000 }, searchOrder)
+      } else {
+        res = await MusicService.fetchMusicInMonth(label, { page: 0, size: 10000 }, searchOrder)
+      }
+      const convertedMusic = searchMusicResultConvert(res.items)
+      await TrackPlayer.pause()
+      await TrackPlayer.reset()
+      await TrackPlayer.add(convertedMusic)
+      dispatch(setLoadChangeTrack(true))
+      dispatch(setCurrentQueue([...convertedMusic]))
+      dispatch(setOriginalQueue([...convertedMusic]))
+    } catch (e) {
+      console.log('添加歌曲至播放列表错误', e)
+    }
+  }
+
+  const onPressShuffle = async () => {
+    try {
+      let res
+      if (type === COLLECTION_TYPE.Singer) {
+        res = await MusicService.searchMusic(label, { page: 0, size: 10000 }, searchOrder)
+      } else {
+        res = await MusicService.fetchMusicInMonth(label, { page: 0, size: 10000 }, searchOrder)
+      }
+      const convertedMusic = searchMusicResultConvert(res.items)
+      await TrackPlayer.pause()
+      await TrackPlayer.reset()
+      await TrackPlayer.setRepeatMode(RepeatMode.Queue)
+      dispatch(setTrackRepeatMode(TrackRepeatMode.Shuffle))
+      dispatch(setOriginalQueue([...convertedMusic]))
+      shuffleArray(convertedMusic)
+      await TrackPlayer.add(convertedMusic)
+      dispatch(setLoadChangeTrack(true))
+      dispatch(setCurrentQueue([...convertedMusic]))
+    } catch (e) {
+      console.log('添加歌曲至随机播放错误', e)
+    }
+  }
+
+  const renderItem = ({ item }) => (
+    <PlainMusicItem track={item} itemPlaying={isItemPlaying(item)} onPressItem={onPressItem} />
+  )
   const listHeader = () => (
     <View style={styles.listHeaderWrapper}>
-      <View style={styles.listHeaderTextWrapper}>
-        <Pressable
-          style={({ pressed }) => [styles.listHeaderSearchOrderBtn, { opacity: pressed ? 0.6 : 1 }]}
-          onPress={toggleSearchOrder}
-        >
-          <Text style={styles.listHeaderSearchOrderText}>
-            {searchOrder === SEARCH_ORDER.DateNewToOld ? '最新' : '热门'}
-          </Text>
-          <Icon type="ionicon" name="caret-down" size={16} color={Colors.grey2} />
-        </Pressable>
-      </View>
-      <View style={styles.listHeaderBtnWrapper}>
-        <Pressable
-          style={({ pressed }) => ({
-            marginRight: 10 * WIDTH_RATIO,
-            opacity: pressed ? 0.6 : 1
-          })}
-        >
-          <Icon type="player" name="shuffle" size={28 * WIDTH_RATIO} color={Colors.grey2} />
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.6 : 1
-          })}
-        >
-          <Icon type="ionicon" name="play-circle" size={40 * WIDTH_RATIO} color={Colors.pink1} />
-        </Pressable>
+      {description && (
+        <Text
+          style={styles.description}
+        >{`${description}。五个姑娘梦想起航的时刻，让我们一起回望最初的歌。`}</Text>
+      )}
+      <View style={styles.controllerWrapper}>
+        <View style={styles.searchOrderWrapper}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.listHeaderSearchOrderBtn,
+              { opacity: pressed ? 0.6 : 1 }
+            ]}
+            onPress={toggleSearchOrder}
+          >
+            <Text style={styles.listHeaderSearchOrderText}>
+              {searchOrder === SEARCH_ORDER.DateNewToOld ? '最新' : '热门'}
+            </Text>
+            <Icon type="feather" name="menu" size={16} color={Colors.grey2} />
+          </Pressable>
+        </View>
+        <View style={styles.listHeaderBtnWrapper}>
+          <Pressable
+            style={({ pressed }) => ({
+              marginRight: 10 * WIDTH_RATIO,
+              opacity: pressed ? 0.6 : 1
+            })}
+            onPress={onPressShuffle}
+          >
+            <Icon type="player" name="shuffle" size={28 * WIDTH_RATIO} color={Colors.grey2} />
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.6 : 1
+            })}
+            onPress={onPressPlay}
+          >
+            <Icon type="ionicon" name="play-circle" size={40 * WIDTH_RATIO} color={Colors.pink1} />
+          </Pressable>
+        </View>
       </View>
     </View>
   )
@@ -153,8 +275,8 @@ const Collection = ({ route, navigation }) => {
         maxHeight={MAX_HEIGHT * WIDTH_RATIO}
         minHeight={MIN_HEIGHT * WIDTH_RATIO}
         renderHeader={() => (
-          <ImageBackground
-            source={require('../../../assets/cover/莞儿角色卡.png')}
+          <FastImage
+            source={{ uri: headerImageUrl }}
             style={styles.headerImage}
             resizeMode={'cover'}
           >
@@ -164,7 +286,7 @@ const Collection = ({ route, navigation }) => {
               end={{ x: 0, y: 1 }}
               colors={['#00000000', Colors.black1Transparent]}
             ></LinearGradient>
-          </ImageBackground>
+          </FastImage>
         )}
         renderForeground={() => (
           <View style={[styles.foregroundWrapper, { marginTop: insets.top }]}>
@@ -178,7 +300,7 @@ const Collection = ({ route, navigation }) => {
                 backBtnView.current.fadeIn(400)
               }}
             >
-              <Text style={styles.foregroundTitle}>{label}</Text>
+              <Text style={styles.foregroundTitle}>{title}</Text>
             </TriggeringView>
           </View>
         )}
@@ -201,7 +323,7 @@ const Collection = ({ route, navigation }) => {
             >
               <Icon type="feather" name="chevron-left" color={Colors.white1} size={26} />
             </Pressable>
-            <Text style={styles.navTitle}>{label}</Text>
+            <Text style={styles.navTitle}>{title}</Text>
           </Animatable.View>
         )}
         ScrollViewComponent={FlatList}
@@ -211,6 +333,7 @@ const Collection = ({ route, navigation }) => {
         ListFooterComponent={<Footer />}
         ListHeaderComponent={listHeader}
         onEndReached={getNextPageMusic}
+        showsVerticalScrollIndicator={false}
       ></ImageHeaderScrollView>
       <Animatable.View
         ref={backBtnView}
@@ -252,7 +375,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   foregroundTitle: {
-    fontSize: 50,
+    fontSize: 50 * WIDTH_RATIO,
     color: Colors.white1,
     fontWeight: '700'
   },
@@ -268,17 +391,26 @@ const styles = StyleSheet.create({
   navTitle: {
     color: Colors.white1,
     backgroundColor: 'transparent',
-    fontSize: 18,
+    fontSize: 18 * WIDTH_RATIO,
     fontWeight: '600'
   },
   listHeaderWrapper: {
     flex: 1,
     display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingHorizontal: 20 * WIDTH_RATIO,
     backgroundColor: Colors.white1,
     paddingTop: 6 * WIDTH_RATIO
+  },
+  controllerWrapper: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  },
+  description: {
+    fontSize: 13,
+    fontWeight: '300',
+    color: Colors.grey2
   },
   listHeaderBtnWrapper: {
     display: 'flex',
@@ -286,7 +418,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center'
   },
-  listHeaderTextWrapper: {
+  searchOrderWrapper: {
     justifyContent: 'center'
   },
   listHeaderText: {
@@ -300,7 +432,8 @@ const styles = StyleSheet.create({
   },
   listHeaderSearchOrderText: {
     color: Colors.grey2,
-    fontWeight: '300'
+    fontWeight: '300',
+    fontSize: 14
   }
 })
 

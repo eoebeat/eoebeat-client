@@ -1,9 +1,17 @@
-import { View, Text, StyleSheet, FlatList, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, FlatList } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { Colors, HEIGHT_RATIO, WIDTH_RATIO } from '../../styles/Styles'
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
 import { useSelector, useDispatch } from 'react-redux'
-import { setBottomPosition, selectCurrentTrack } from '../../store/slices/playerSlice'
+import {
+  setBottomPosition,
+  selectCurrentTrack,
+  setCurrentQueue,
+  setOriginalQueue,
+  setCurrentTrack,
+  setLoadChangeTrack,
+  selectOriginalQueue
+} from '../../store/slices/playerSlice'
 import { getGreeting, searchMusicResultConvert } from '../../utils/shared'
 import PlaylistCard from './PlaylistCard'
 import MusicService from '../../services/music.service'
@@ -11,9 +19,23 @@ import MusicItem from '../common/MusicItem'
 import Separator from '../common/Separator'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Button } from '@rneui/themed'
-import { COLLECTION_TYPE, HOME_PAGE_SIZE, SEARCH_ORDER } from '../../constants/Shared'
+import {
+  COLLECTION_TYPE,
+  DEFAULT_COVER_NAME,
+  HOME_PAGE_HEADER_ASSETS,
+  HOME_PAGE_SIZE,
+  SEARCH_ORDER
+} from '../../constants/Shared'
 import Footer from '../common/Footer'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import {
+  setHeaderImageUrls,
+  selectHeaderImageUrls,
+  setDefaultCoverUrls,
+  selectDefaultCoverUrls
+} from '../../store/slices/assetSlice'
+import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player'
+import MonthlyCard from './MonthlyCard'
 
 const Home = ({ navigation }) => {
   const tabBarHeight = useBottomTabBarHeight()
@@ -25,6 +47,11 @@ const Home = ({ navigation }) => {
   const [musicListLoading, setMusicListLoading] = useState(false)
   const currentTrack = useSelector(selectCurrentTrack)
   const insets = useSafeAreaInsets()
+  const headerImageUrls = useSelector(selectHeaderImageUrls)
+  const playerState = usePlaybackState()
+  const originalQueue = useSelector(selectOriginalQueue)
+  const defaultCoverUrls = useSelector(selectDefaultCoverUrls)
+  const [monthlyCollection, setMonthlyCollection] = useState([])
 
   // 选择在主页面监听正在播放的歌曲，并对每个MusicItem执行函数得到它是否在播放
   // Instead of 在每个MusicItem内做监听
@@ -35,6 +62,8 @@ const Home = ({ navigation }) => {
   useEffect(() => {
     const greetingText = getGreeting()
     setGreeting(greetingText)
+    getAssetsImage()
+    getMonthlyCollection()
   }, [])
 
   useEffect(() => {
@@ -60,7 +89,7 @@ const Home = ({ navigation }) => {
       setMusicList(convertedMusic)
       setMusicListLoading(false)
     } catch (e) {
-      console.log(e)
+      console.log('some error in getting first page music', e)
     }
   }
 
@@ -85,6 +114,30 @@ const Home = ({ navigation }) => {
     }
   }
 
+  const getAssetsImage = async () => {
+    try {
+      const res = await MusicService.fetchConfigImage(
+        HOME_PAGE_HEADER_ASSETS.concat(DEFAULT_COVER_NAME)
+      )
+      const urls = res.map((value) => value.url)
+      const headerUrls = urls.slice(0, HOME_PAGE_HEADER_ASSETS.length)
+      const coverUrls = urls.slice(HOME_PAGE_HEADER_ASSETS.length)
+      dispatch(setHeaderImageUrls([...headerUrls]))
+      dispatch(setDefaultCoverUrls([...coverUrls]))
+    } catch (e) {
+      console.log('获取主页头图失败', e)
+    }
+  }
+
+  const getMonthlyCollection = async () => {
+    try {
+      const res = await MusicService.fetchMonthlyCollection()
+      setMonthlyCollection(res)
+    } catch (e) {
+      console.log('获取月度合集信息失败', e)
+    }
+  }
+
   const clear = async () => {
     try {
       await AsyncStorage.clear()
@@ -93,46 +146,201 @@ const Home = ({ navigation }) => {
     }
   }
 
+  const resetQueues = async () => {
+    await TrackPlayer.reset()
+    dispatch(setCurrentQueue([]))
+    dispatch(setOriginalQueue([]))
+    dispatch(setCurrentTrack(undefined))
+  }
+
+  const onPressItem = async (track) => {
+    try {
+      let playerQueue = await TrackPlayer.getQueue()
+      const idx = playerQueue.findIndex((element) => element.id === track.id)
+      const currentTrackIdx = await TrackPlayer.getCurrentTrack()
+
+      // 当前队列中没有歌曲
+      if (playerQueue.length === 0) {
+        await TrackPlayer.add(track)
+        dispatch(setLoadChangeTrack(true))
+        playerQueue = await TrackPlayer.getQueue()
+        dispatch(setCurrentQueue([...playerQueue]))
+        dispatch(setOriginalQueue([track, ...originalQueue]))
+        return
+      }
+
+      if (idx === -1) {
+        // 当前播放列表中没有此歌曲
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
+
+        await TrackPlayer.add(track, 0)
+        await TrackPlayer.skip(0)
+        dispatch(setLoadChangeTrack(true))
+
+        playerQueue = await TrackPlayer.getQueue()
+        dispatch(setCurrentQueue([...playerQueue]))
+        dispatch(setOriginalQueue([track, ...originalQueue]))
+      } else if (idx === currentTrackIdx) {
+        await TrackPlayer.seekTo(0)
+        if (playerState !== State.Playing) {
+          await TrackPlayer.play()
+        }
+      } else {
+        // 当前播放列表中已有此歌曲，且此歌曲未在播放
+        const length = playerQueue.length
+        while (playerQueue.length !== length - 1) {
+          playerQueue.forEach(async (value, index) => {
+            if (value.id === track.id) {
+              await TrackPlayer.remove(index)
+            }
+          })
+          playerQueue = await TrackPlayer.getQueue()
+        }
+
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
+
+        await TrackPlayer.add(track, 0)
+        await TrackPlayer.skip(0)
+        dispatch(setLoadChangeTrack(true))
+
+        playerQueue = await TrackPlayer.getQueue()
+        dispatch(setCurrentQueue([...playerQueue]))
+        dispatch(setOriginalQueue([track, ...originalQueue.filter((item) => item.id !== track.id)]))
+      }
+    } catch (e) {
+      console.log(e)
+    }
+  }
+
+  const renderMusicItem = ({ item }) => (
+    <MusicItem
+      track={item}
+      itemPlaying={isItemPlaying(item)}
+      onPressItem={onPressItem}
+      defaultCoverUrls={defaultCoverUrls}
+    />
+  )
+
+  const renderMonthlyCard = ({ item }) => (
+    <MonthlyCard
+      name={item.name}
+      coverSource={item.coverPath}
+      onPress={() =>
+        navigation.navigate('Collection', {
+          type: COLLECTION_TYPE.Month,
+          label: item.searchLabel,
+          title: item.name,
+          description: item.description,
+          headerImageUrl: item.coverPath
+        })
+      }
+    />
+  )
+  const monthlyCardSeperator = () => <View style={{ width: 20 * WIDTH_RATIO }}></View>
+
   const listHeaderComponent = (
     <View style={[styles.listHeaderContainer, { paddingTop: insets.top }]}>
       <Text style={styles.greetingText}>{greeting}</Text>
       <Button onPress={clear} title="clear async storage" />
+      <Button onPress={resetQueues} title="reset queues" />
       <View style={styles.playlistCardsWrapper}>
         <View style={styles.playlistCardsSubWrapper}>
-          <PlaylistCard title={'已收藏的歌曲'} />
           <PlaylistCard
-            title={'莞儿合集'}
-            cardImage={require('../../../assets/cover/莞儿.jpg')}
+            title={'已收藏的歌曲'}
+            cardImage={headerImageUrls && headerImageUrls.length ? headerImageUrls[0] : ''}
+          />
+          <PlaylistCard
+            title={'莞儿'}
+            cardImage={headerImageUrls && headerImageUrls.length ? headerImageUrls[1] : ''}
             onPress={() =>
-              navigation.navigate('Collection', { type: COLLECTION_TYPE.Singer, label: '莞儿' })
+              navigation.navigate('Collection', {
+                type: COLLECTION_TYPE.Singer,
+                label: '莞儿',
+                title: '莞儿',
+                headerImageUrl: headerImageUrls && headerImageUrls.length ? headerImageUrls[1] : ''
+              })
             }
           />
         </View>
         <View style={[styles.playlistCardsSubWrapper, { marginTop: 6 }]}>
-          <PlaylistCard title={'露早合集'} cardImage={require('../../../assets/cover/露早.jpg')} />
-          <PlaylistCard title={'米诺合集'} cardImage={require('../../../assets/cover/米诺.jpg')} />
+          <PlaylistCard
+            title={'露早'}
+            cardImage={headerImageUrls && headerImageUrls.length ? headerImageUrls[2] : ''}
+            onPress={() =>
+              navigation.navigate('Collection', {
+                type: COLLECTION_TYPE.Singer,
+                label: '露早',
+                title: '露早',
+                headerImageUrl: headerImageUrls && headerImageUrls.length ? headerImageUrls[2] : ''
+              })
+            }
+          />
+          <PlaylistCard
+            title={'米诺'}
+            cardImage={headerImageUrls && headerImageUrls.length ? headerImageUrls[3] : ''}
+            onPress={() =>
+              navigation.navigate('Collection', {
+                type: COLLECTION_TYPE.Singer,
+                label: '米诺',
+                title: '米诺',
+                headerImageUrl: headerImageUrls && headerImageUrls.length ? headerImageUrls[3] : ''
+              })
+            }
+          />
         </View>
         <View style={[styles.playlistCardsSubWrapper, { marginTop: 6 }]}>
-          <PlaylistCard title={'虞莫合集'} cardImage={require('../../../assets/cover/虞莫.jpg')} />
-          <PlaylistCard title={'柚恩合集'} cardImage={require('../../../assets/cover/柚恩.jpg')} />
+          <PlaylistCard
+            title={'虞莫'}
+            cardImage={headerImageUrls && headerImageUrls.length ? headerImageUrls[4] : ''}
+            onPress={() =>
+              navigation.navigate('Collection', {
+                type: COLLECTION_TYPE.Singer,
+                label: '虞莫',
+                title: '虞莫',
+                headerImageUrl: headerImageUrls && headerImageUrls.length ? headerImageUrls[4] : ''
+              })
+            }
+          />
+          <PlaylistCard
+            title={'柚恩'}
+            cardImage={headerImageUrls && headerImageUrls.length ? headerImageUrls[5] : ''}
+            onPress={() =>
+              navigation.navigate('Collection', {
+                type: COLLECTION_TYPE.Singer,
+                label: '柚恩',
+                title: '柚恩',
+                headerImageUrl: headerImageUrls && headerImageUrls.length ? headerImageUrls[5] : ''
+              })
+            }
+          />
         </View>
       </View>
+      <Text style={styles.musicListTitle}>月度合集</Text>
+      <FlatList
+        data={monthlyCollection}
+        renderItem={renderMonthlyCard}
+        horizontal
+        ItemSeparatorComponent={monthlyCardSeperator}
+        showsHorizontalScrollIndicator={false}
+      />
       <Text style={styles.musicListTitle}>歌曲列表</Text>
     </View>
   )
 
-  const renderItem = ({ item }) => <MusicItem track={item} itemPlaying={isItemPlaying(item)} />
-
   return (
     <FlatList
       data={musicList}
-      renderItem={renderItem}
+      renderItem={renderMusicItem}
       ListHeaderComponent={listHeaderComponent}
       ItemSeparatorComponent={Separator}
       ListFooterComponent={<Footer />}
       onEndReached={getNextPageMusic}
       refreshing={musicListLoading}
       initialNumToRender={7}
+      keyExtractor={(item) => item.id}
+      showsVerticalScrollIndicator={false}
     />
   )
 }

@@ -94,3 +94,22 @@ export const searchMusicResultConvert = (searchResult) => {
 
   return convertedMusic
 }
+
+export const findCurrentTrackIndex = (track, queue) => {
+  if (!track || !queue || queue.length === 0) return -1
+  const compareTrack = (element) => element.id === track.id
+  return queue.findIndex(compareTrack)
+}
+
+export const getDisplayTitleText = (track) => {
+  if (!track) return '未在播放'
+
+  let res = track.title
+  if (track.titleAlias) {
+    res += ` (${track.titleAlias})`
+  }
+  if (track.versionRemark) {
+    res += `【${track.versionRemark}】`
+  }
+  return res
+}

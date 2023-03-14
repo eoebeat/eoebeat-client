@@ -1,23 +1,26 @@
-import { View, Text, Pressable, StyleSheet, Image } from 'react-native'
+import { View, Text, Pressable, StyleSheet } from 'react-native'
 import React, { memo } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
 import { Colors, DEVICE_LOGIC_WIDTH, WIDTH_RATIO } from '../../styles/Styles'
-import { selectCurrentTrack, setCurrentTrack } from '../../store/slices/playerSlice'
+import { getDisplayTitleText } from '../../utils/shared'
 
-export const MUSICITEM_HEIGHT = 60 * WIDTH_RATIO
+export const PLAIN_MUSICITEM_HEIGHT = 60 * WIDTH_RATIO
 
 const PlainMusicItem = (props) => {
-  const { track, itemPlaying } = props
+  const { track, itemPlaying, onPressItem } = props
   const titleColor = itemPlaying ? Colors.pink1 : Colors.black1
   const artistColor = itemPlaying ? Colors.pink1 : Colors.grey2
-  const dispatch = useDispatch()
+
+  const titleText = getDisplayTitleText(track)
 
   return (
-    <Pressable style={({ pressed }) => [styles.container, { opacity: pressed ? 0.6 : 1 }]}>
+    <Pressable
+      style={({ pressed }) => [styles.container, { opacity: pressed ? 0.6 : 1 }]}
+      onPress={() => onPressItem(track)}
+    >
       <View style={styles.InfoWrapper}>
         <View style={styles.textWrapper}>
           <Text style={[styles.title, { color: titleColor }]} numberOfLines={1}>
-            {track.title}
+            {titleText}
           </Text>
           <Text style={[styles.artist, { color: artistColor }]}>
             {`${track.artist} - ${track.date}`}
@@ -31,7 +34,7 @@ const PlainMusicItem = (props) => {
 const styles = StyleSheet.create({
   container: {
     display: 'flex',
-    height: MUSICITEM_HEIGHT,
+    height: PLAIN_MUSICITEM_HEIGHT,
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: DEVICE_LOGIC_WIDTH,
@@ -54,12 +57,16 @@ const styles = StyleSheet.create({
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-evenly',
-    height: MUSICITEM_HEIGHT
+    height: PLAIN_MUSICITEM_HEIGHT,
+    paddingVertical: 3 * WIDTH_RATIO,
+    flex: 1
   },
   title: {
     color: Colors.black1,
     fontSize: 16,
-    fontWeight: '400'
+    fontWeight: '400',
+    flexShrink: 1,
+    flexWrap: 'wrap'
   },
   artist: {
     color: Colors.grey2,

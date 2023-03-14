@@ -4,11 +4,12 @@ import searchReducer from './slices/searchSlice'
 import { persistReducer, persistStore } from 'redux-persist'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import thunk from 'redux-thunk'
+import assetReducer from './slices/assetSlice'
 
 const playerPersistConfig = {
   key: 'player',
   storage: AsyncStorage,
-  whitelist: ['currentTrack']
+  blacklist: ['finishedSetup']
 }
 
 // root persist里不存player, player reducer作为一个单独的persist存储
@@ -20,7 +21,8 @@ const rootPersistConfig = {
 
 const rootReducer = combineReducers({
   player: persistReducer(playerPersistConfig, playerReducer),
-  search: searchReducer
+  search: searchReducer,
+  asset: assetReducer
 })
 
 const persistedReducer = persistReducer(rootPersistConfig, rootReducer)

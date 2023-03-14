@@ -1,4 +1,4 @@
-import { View, Text, Button, StyleSheet, Pressable } from 'react-native'
+import { View, Text, StyleSheet, Pressable } from 'react-native'
 import React from 'react'
 import { Overlay } from '@rneui/themed'
 import { Colors, WIDTH_RATIO } from '../../styles/Styles'

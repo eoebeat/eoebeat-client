@@ -9,7 +9,10 @@ import { TrackRepeatMode } from '../../constants/Player'
  *  title: string,
  *  artist: string,
  *  artwork?: string,
- *  date: string
+ *  date: string,
+ *  titleAlias?: string,
+ *  versionRemark?: string,
+ *  songLanguage: string
  * }
  */
 
@@ -19,7 +22,9 @@ const initialState = {
   currentTrack: undefined,
   trackRepeatMode: TrackRepeatMode.Queue,
   currentQueue: [],
-  originalQueue: []
+  originalQueue: [],
+  currentProgress: 0,
+  loadChangeTrack: false
 }
 
 export const playerSlice = createSlice({
@@ -39,13 +44,19 @@ export const playerSlice = createSlice({
       state.trackRepeatMode = action.payload
     },
     setCurrentQueue: (state, action) => {
-      state.currentQueue = [...action.payload]
+      state.currentQueue = action.payload
     },
     addTrackToQueue: (state, action) => {
       state.currentQueue = [...state.currentQueue, action.payload]
     },
     setOriginalQueue: (state, action) => {
-      state.originalQueue = [...action.payload]
+      state.originalQueue = action.payload
+    },
+    setCurrentProgress: (state, action) => {
+      state.currentProgress = action.payload
+    },
+    setLoadChangeTrack: (state, action) => {
+      state.loadChangeTrack = action.payload
     }
   }
 })
@@ -57,7 +68,9 @@ export const {
   setTrackRepeatMode,
   setCurrentQueue,
   addTrackToQueue,
-  setOriginalQueue
+  setOriginalQueue,
+  setCurrentProgress,
+  setLoadChangeTrack
 } = playerSlice.actions
 
 export const selectFinishedSetup = (state) => state.player.finishedSetup
@@ -66,5 +79,7 @@ export const selectCurrentTrack = (state) => state.player.currentTrack
 export const selectTrackRepeatMode = (state) => state.player.trackRepeatMode
 export const selectCurrentQueue = (state) => state.player.currentQueue
 export const selectOriginalQueue = (state) => state.player.originalQueue
+export const selectCurrentProgress = (state) => state.player.currentProgress
+export const selectLoadChangeTrack = (state) => state.player.loadChangeTrack
 
 export default playerSlice.reducer

@@ -1,40 +1,22 @@
-import { View, StyleSheet, Pressable, Image, Text, ImageBackground, Platform } from 'react-native'
+import { View, StyleSheet, Pressable, Text, Platform } from 'react-native'
 import React, { useEffect, useMemo, useState } from 'react'
 import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player'
 import { useSelector, useDispatch } from 'react-redux'
 import { Colors, DEVICE_LOGIC_WIDTH, HEIGHT_RATIO, WIDTH_RATIO } from '../../styles/Styles'
 import { Icon } from '@rneui/themed'
 import { BlurView } from '@react-native-community/blur'
-import { allSongs } from '../../Mockdata'
 import {
+  selectCurrentProgress,
+  selectCurrentQueue,
   selectCurrentTrack,
-  setCurrentQueue,
-  setCurrentTrack,
-  setOriginalQueue
+  selectLoadChangeTrack,
+  setLoadChangeTrack
 } from '../../store/slices/playerSlice'
 import PlayerModal from './PlayerModal'
-
-const track1 = {
-  url: 'https://storage.vtb.studio/d/AZGLOBAL/NFG/AS/Normalized%20Audio%20Tag/2022.05.10-2022.11.06/2022.05.13%20F%20%E5%8B%87%E6%B0%94%E3%80%905.0%E3%80%91.m4a',
-  title: 'track1',
-  artist: '米诺'
-}
-
-const track2 = {
-  url: 'https://storage.vtb.studio/d/AZGLOBAL/NFG/AS/Normalized%20Audio%20Tag/2022.05.10-2022.11.06/2022.05.11%20AB%20%E9%81%87%E5%88%B0%E4%BD%A0%E7%9A%84%E6%97%B6%E5%80%99%E6%89%80%E6%9C%89%E6%98%9F%E6%98%9F%E9%83%BD%E8%90%BD%E5%88%B0%E6%88%91%E5%A4%B4%E4%B8%8A.m4a',
-  title: 'track2',
-  artist: '露早'
-}
-
-const allTracks = allSongs.map((value) => ({
-  id: value.id,
-  url: value.url,
-  duration: value.duration,
-  title: value.songName,
-  artist: value.performer,
-  artwork: value.coverUrl ? value.coverUrl : '',
-  date: value.datetime
-}))
+import { findCurrentTrackIndex, getDisplayTitleText } from '../../utils/shared'
+import FastImage from 'react-native-fast-image'
+import TextTicker from 'react-native-text-ticker'
+import { selectDefaultCoverUrls } from '../../store/slices/assetSlice'
 
 const Player = () => {
   const dispatch = useDispatch()
@@ -45,17 +27,24 @@ const Player = () => {
     if (showPlayerModal) return 0
     return 1
   }, [showPlayerModal])
+  const currentQueue = useSelector(selectCurrentQueue)
+  const currentProgress = useSelector(selectCurrentProgress)
+  const loadChangeTrack = useSelector(selectLoadChangeTrack)
 
   useEffect(() => {
     const loadTrack = async () => {
       try {
-        {
-          if (!allTracks || !allTracks.length) return
-          await TrackPlayer.add(allTracks)
-          dispatch(setCurrentQueue(allTracks))
-          dispatch(setOriginalQueue(allTracks))
-          dispatch(setCurrentTrack(allTracks[0]))
+        await TrackPlayer.reset() // just incase
+        await TrackPlayer.add(currentQueue)
+        const currentTrackIdx = findCurrentTrackIndex(currentTrack, currentQueue)
+
+        if (currentTrackIdx === -1) return
+
+        // 如果currentTrack不是排currentQueue第一个，需要跳转到queue中的相应idx
+        if (currentTrackIdx !== 0) {
+          await TrackPlayer.skip(currentTrackIdx)
         }
+        await TrackPlayer.seekTo(currentProgress)
       } catch (e) {
         console.log(e)
       }
@@ -63,45 +52,86 @@ const Player = () => {
     loadTrack()
   }, [])
 
+  useEffect(() => {
+    const checkReadyAndPlay = async () => {
+      console.log('checkReadyAndPlay, load: ', loadChangeTrack, ' state: ', playerState)
+      if (!loadChangeTrack) return
+
+      if (playerState === State.Ready) {
+        await TrackPlayer.play()
+        dispatch(setLoadChangeTrack(false))
+      }
+    }
+    checkReadyAndPlay()
+  }, [loadChangeTrack, playerState])
+
   const coverImageSource = useMemo(() => {
+    if (!currentTrack) {
+      return require('../../../assets/cover/未在播放.png')
+    }
+    console.log(currentTrack.url)
+    console.log(currentTrack.artwork)
+    return { uri: currentTrack.artwork }
+  }, [currentTrack])
+
+  const getDefaultCoverImageSource = () => {
     // 未在播放并且没有缓存的播放记录
     if (!currentTrack) return require('../../../assets/cover/未在播放.png')
     // 当前track有封面
-    if (currentTrack.artwork) return currentTrack.artwork
+    // if (currentTrack.artwork) return { uri: currentTrack.artwork }
     // 当前track没有封面
-    if (currentTrack.artist.length > 2) return require('../../../assets/cover/EOE.jpg')
+    if (currentTrack.artist && currentTrack.artist.length > 2)
+      // return { uri: defaultCoverUrls && defaultCoverUrls.length ? defaultCoverUrls[0] : '' }
+      return require('../../../assets/cover/EOE默认封面1.jpg')
     // 各成员默认封面
-    if (currentTrack.artist === '莞儿') return require('../../../assets/cover/莞儿.jpg')
-    if (currentTrack.artist === '露早') return require('../../../assets/cover/露早.jpg')
-    if (currentTrack.artist === '米诺') return require('../../../assets/cover/米诺.jpg')
-    if (currentTrack.artist === '柚恩') return require('../../../assets/cover/柚恩.jpg')
-    if (currentTrack.artist === '虞莫') return require('../../../assets/cover/虞莫.jpg')
-  }, [currentTrack])
+    if (currentTrack.artist === '莞儿')
+      // return { uri: defaultCoverUrls && defaultCoverUrls.length ? defaultCoverUrls[1] : '' }
+      return require('../../../assets/cover/莞儿默认封面1.jpg')
+    if (currentTrack.artist === '露早')
+      // return { uri: defaultCoverUrls && defaultCoverUrls.length ? defaultCoverUrls[2] : '' }
+      return require('../../../assets/cover/露早默认封面1.jpg')
+    if (currentTrack.artist === '米诺')
+      // return { uri: defaultCoverUrls && defaultCoverUrls.length ? defaultCoverUrls[3] : '' }
+      return require('../../../assets/cover/米诺默认封面1.jpg')
+    if (currentTrack.artist === '柚恩')
+      // return { uri: defaultCoverUrls && defaultCoverUrls.length ? defaultCoverUrls[4] : '' }
+      return require('../../../assets/cover/柚恩默认封面1.jpg')
+    if (currentTrack.artist === '虞莫')
+      // return { uri: defaultCoverUrls && defaultCoverUrls.length ? defaultCoverUrls[5] : '' }
+      return require('../../../assets/cover/虞莫默认封面1.jpg')
+  }
 
   const isPlaying = useMemo(() => {
     return playerState === State.Playing || playerState === State.Buffering
   }, [playerState])
 
   const onPressPlay = async () => {
+    if (loadChangeTrack) return
     await TrackPlayer.play()
   }
 
   const onPressPause = async () => {
+    if (loadChangeTrack) return
     await TrackPlayer.pause()
   }
 
-  // 待完成
   const onPressSkipForward = async () => {
     try {
       const queue = await TrackPlayer.getQueue()
+      if (!queue.length) return
+
       const currentTrackIndex = await TrackPlayer.getCurrentTrack()
-      // 非随机播放下，如果是queue中最后一首歌，则跳转到queue中的第一首
+
       if (currentTrackIndex === queue.length - 1) {
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
         await TrackPlayer.skip(0)
-        await TrackPlayer.play()
+        dispatch(setLoadChangeTrack(true))
       } else {
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
         await TrackPlayer.skipToNext()
-        await TrackPlayer.play()
+        dispatch(setLoadChangeTrack(true))
       }
     } catch (e) {
       console.log(e)
@@ -111,14 +141,20 @@ const Player = () => {
   const onPressSkipBackward = async () => {
     try {
       const queue = await TrackPlayer.getQueue()
+      if (!queue.length) return
+
       const currentTrackIndex = await TrackPlayer.getCurrentTrack()
-      // 非随机播放下，如果是queue中的第一首歌，则跳转到queue中的最后一首
+
       if (currentTrackIndex === 0) {
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
         await TrackPlayer.skip(queue.length - 1)
-        await TrackPlayer.play()
+        dispatch(setLoadChangeTrack(true))
       } else {
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
         await TrackPlayer.skipToPrevious()
-        await TrackPlayer.play()
+        dispatch(setLoadChangeTrack(true))
       }
     } catch (e) {
       console.log(e)
@@ -130,14 +166,17 @@ const Player = () => {
     setShowPlayerModal(true)
   }
 
+  const titleText = getDisplayTitleText(currentTrack)
+
   return (
     <>
       <View style={styles.container}>
         <Pressable style={styles.playerPressable} onPressOut={onPressPlayer}>
-          <ImageBackground
+          <FastImage
             style={[styles.backgroundImage, styles.blur]}
             source={coverImageSource}
             opacity={Platform.OS === 'android' ? playerOpacityAndroid : 1}
+            defaultSource={getDefaultCoverImageSource()}
           >
             <BlurView
               style={[styles.blurView, Platform.OS === 'android' && styles.androidBlur]}
@@ -150,18 +189,28 @@ const Player = () => {
             />
             <View style={styles.leftPartWrapper}>
               <View style={styles.coverImageWrapper}>
-                <Image
+                <FastImage
                   style={[
                     styles.coverImage,
                     { opacity: Platform.OS === 'android' ? playerOpacityAndroid : 1 }
                   ]}
                   source={coverImageSource}
+                  defaultSource={getDefaultCoverImageSource()}
                 />
               </View>
               <View style={styles.textWrapper}>
-                <Text style={styles.songName}>
-                  {currentTrack && currentTrack.title ? currentTrack.title : '未在播放'}
-                </Text>
+                <View style={styles.titleWrapper}>
+                  <TextTicker
+                    style={styles.songName}
+                    numberOfLines={1}
+                    bounceSpeed={100}
+                    bounceDelay={2000}
+                    scrollSpeed={50}
+                    bouncePadding={{ left: 0, right: 0 }}
+                  >
+                    {titleText}
+                  </TextTicker>
+                </View>
                 <Text style={styles.performer}>
                   {currentTrack && currentTrack.artist ? currentTrack.artist : ''}
                 </Text>
@@ -198,7 +247,10 @@ const Player = () => {
               )}
               <Pressable
                 style={({ pressed }) => [
-                  { opacity: pressed ? 0.6 : 1, marginLeft: 8 * WIDTH_RATIO }
+                  {
+                    opacity: pressed ? 0.6 : 1,
+                    marginLeft: 8 * WIDTH_RATIO
+                  }
                 ]}
                 onPressOut={onPressSkipForward}
               >
@@ -211,7 +263,7 @@ const Player = () => {
                 />
               </Pressable>
             </View>
-          </ImageBackground>
+          </FastImage>
         </Pressable>
       </View>
       <PlayerModal
@@ -223,6 +275,7 @@ const Player = () => {
         onPressPause={onPressPause}
         onPressSkipForward={onPressSkipForward}
         onPressSkipBackward={onPressSkipBackward}
+        getDefaultCoverImageSource={getDefaultCoverImageSource}
       />
     </>
   )
@@ -251,7 +304,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   coverImageWrapper: {
-    marginLeft: 6 * HEIGHT_RATIO
+    marginLeft: 20 * WIDTH_RATIO
   },
   coverImage: {
     height: 46 * HEIGHT_RATIO,
@@ -263,10 +316,15 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     marginLeft: 10 * WIDTH_RATIO
   },
+  titleWrapper: {
+    display: 'flex',
+    flexDirection: 'row'
+  },
   songName: {
     fontSize: 16 * HEIGHT_RATIO,
     color: Colors.black1,
-    marginBottom: 4 * HEIGHT_RATIO
+    marginBottom: 4 * HEIGHT_RATIO,
+    width: 226 * WIDTH_RATIO
   },
   performer: {
     fontSize: 12 * HEIGHT_RATIO,

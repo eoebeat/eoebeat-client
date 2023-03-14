@@ -6,7 +6,7 @@ import { store, persistor } from './src/store/store'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { NavigationContainer } from '@react-navigation/native'
 import { registerCustomIconType } from '@rneui/base'
-import MyIcon from './src/components/CustomIcon'
+import MyIcon from './src/components/common/CustomIcon'
 import { PersistGate } from 'redux-persist/integration/react'
 
 // 全局设置安卓字体来解决文字显示不全

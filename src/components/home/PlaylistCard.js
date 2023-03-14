@@ -1,12 +1,13 @@
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native'
+import { Text, StyleSheet, Pressable } from 'react-native'
 import React from 'react'
 import { Colors, WIDTH_RATIO } from '../../styles/Styles'
+import FastImage from 'react-native-fast-image'
 
 const PlaylistCard = (props) => {
   const { title, cardImage, onPress } = props
   return (
     <Pressable style={styles.pressable} onPress={onPress}>
-      <Image source={cardImage} style={styles.cardImage} />
+      <FastImage source={{ uri: cardImage }} style={styles.cardImage} />
       <Text style={styles.cardText}>{title}</Text>
     </Pressable>
   )

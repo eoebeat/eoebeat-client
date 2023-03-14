@@ -23,4 +23,20 @@ export const SEARCH_ORDER = {
 export const HOME_PAGE_SIZE = 10
 export const COLLECTION_PAGE_SIZE = 20
 
-// export const
+export const HOME_PAGE_HEADER_ASSETS = [
+  '收藏',
+  '莞儿头图',
+  '露早头图',
+  '米诺头图',
+  '虞莫头图',
+  '柚恩头图'
+]
+
+export const DEFAULT_COVER_NAME = [
+  'EOE封面',
+  '莞儿封面',
+  '露早封面',
+  '米诺封面',
+  '虞莫封面',
+  '柚恩封面'
+]

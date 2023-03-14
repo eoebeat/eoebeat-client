@@ -1,11 +1,16 @@
 import { View, Text, StyleSheet, TextInput, FlatList, Pressable } from 'react-native'
 import React, { useMemo, useState } from 'react'
-import { Colors, HEIGHT_RATIO, WIDTH_RATIO } from '../../styles/Styles'
+import { Colors, WIDTH_RATIO } from '../../styles/Styles'
 import { Icon } from '@rneui/themed'
 import MusicService from '../../services/music.service'
 import { searchMusicResultConvert } from '../../utils/shared'
-import MusicItem from '../common/MusicItem'
-import { selectCurrentTrack } from '../../store/slices/playerSlice'
+import {
+  selectCurrentTrack,
+  setLoadChangeTrack,
+  setCurrentQueue,
+  setOriginalQueue,
+  selectOriginalQueue
+} from '../../store/slices/playerSlice'
 import { useDispatch, useSelector } from 'react-redux'
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
 import Separator from '../common/Separator'
@@ -15,6 +20,8 @@ import DeleteOverlay from './DeleteOverlay'
 import Footer from '../common/Footer'
 import { SEARCH_ORDER } from '../../constants/Shared'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import PlainMusicItem from '../common/PlainMusicItem'
+import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player'
 
 const NUM_HISTORYITEM = 10
 
@@ -32,6 +39,8 @@ const Search = () => {
   const searchHistory = useSelector(selectSearchHistory)
   const [showDeleteOverlay, setShowDeleteOverlay] = useState(false)
   const insets = useSafeAreaInsets()
+  const originalQueue = useSelector(selectOriginalQueue)
+  const playerState = usePlaybackState()
 
   const isItemPlaying = (track) => {
     if (currentTrack) return currentTrack.id === track.id
@@ -144,6 +153,67 @@ const Search = () => {
     toggleOverlay()
   }
 
+  const onPressItem = async (track) => {
+    try {
+      let playerQueue = await TrackPlayer.getQueue()
+      const idx = playerQueue.findIndex((element) => element.id === track.id)
+      const currentTrackIdx = await TrackPlayer.getCurrentTrack()
+
+      // 当前队列中没有歌曲
+      if (playerQueue.length === 0) {
+        await TrackPlayer.add(track)
+        dispatch(setLoadChangeTrack(true))
+        playerQueue = await TrackPlayer.getQueue()
+        dispatch(setCurrentQueue([...playerQueue]))
+        dispatch(setOriginalQueue([track, ...originalQueue]))
+        return
+      }
+
+      if (idx === -1) {
+        // 当前播放列表中没有此歌曲
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
+
+        await TrackPlayer.add(track, 0)
+        await TrackPlayer.skip(0)
+        dispatch(setLoadChangeTrack(true))
+
+        playerQueue = await TrackPlayer.getQueue()
+        dispatch(setCurrentQueue([...playerQueue]))
+        dispatch(setOriginalQueue([track, ...originalQueue]))
+      } else if (idx === currentTrackIdx) {
+        await TrackPlayer.seekTo(0)
+        if (playerState !== State.Playing) {
+          await TrackPlayer.play()
+        }
+      } else {
+        // 当前播放列表中已有此歌曲，且此歌曲未在播放
+        const length = playerQueue.length
+        while (playerQueue.length !== length - 1) {
+          playerQueue.forEach(async (value, index) => {
+            if (value.id === track.id) {
+              await TrackPlayer.remove(index)
+            }
+          })
+          playerQueue = await TrackPlayer.getQueue()
+        }
+
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
+
+        await TrackPlayer.add(track, 0)
+        await TrackPlayer.skip(0)
+        dispatch(setLoadChangeTrack(true))
+
+        playerQueue = await TrackPlayer.getQueue()
+        dispatch(setCurrentQueue([...playerQueue]))
+        dispatch(setOriginalQueue([track, ...originalQueue.filter((item) => item.id !== track.id)]))
+      }
+    } catch (e) {
+      console.log(e)
+    }
+  }
+
   const SearchHistoryModule = () => (
     <View style={styles.searchHistoryWrapper}>
       <View style={styles.searchHistoryTitleRowWrapper}>
@@ -165,6 +235,10 @@ const Search = () => {
         ))}
       </View>
     </View>
+  )
+
+  const renderItem = ({ item, index }) => (
+    <PlainMusicItem track={item} itemPlaying={isItemPlaying(item)} onPressItem={onPressItem} />
   )
 
   return (
@@ -207,9 +281,7 @@ const Search = () => {
       {!showNoResultText && (
         <FlatList
           data={musicList}
-          renderItem={({ item, index }) => (
-            <MusicItem track={item} itemPlaying={isItemPlaying(item)} />
-          )}
+          renderItem={renderItem}
           ListHeaderComponent={showSearchHistoryModule ? SearchHistoryModule() : <View />}
           ListFooterComponent={<Footer />}
           ItemSeparatorComponent={Separator}

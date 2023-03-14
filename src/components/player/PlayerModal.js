@@ -1,14 +1,4 @@
-import {
-  View,
-  Text,
-  Modal,
-  StyleSheet,
-  ImageBackground,
-  Pressable,
-  Platform,
-  Image,
-  StatusBar
-} from 'react-native'
+import { View, Text, Modal, StyleSheet, Pressable, Platform, Image, StatusBar } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context'
 import {
@@ -30,9 +20,11 @@ import { useSelector, useDispatch } from 'react-redux'
 import { BlurView } from '@react-native-community/blur'
 import { Icon, Slider } from '@rneui/themed'
 import TrackPlayer, { RepeatMode, useProgress } from 'react-native-track-player'
-import { durationToTime, shuffleArray } from '../../utils/shared'
+import { durationToTime, getDisplayTitleText, shuffleArray } from '../../utils/shared'
 import { TrackRepeatMode } from '../../constants/Player'
-import PlaylistModal from './PlaylistModal'
+import PlaylistModal from './QueueModal'
+import FastImage from 'react-native-fast-image'
+import TextTicker from 'react-native-text-ticker'
 
 const PlayerModal = (props) => {
   const {
@@ -43,7 +35,8 @@ const PlayerModal = (props) => {
     onPressPlay,
     onPressPause,
     onPressSkipForward,
-    onPressSkipBackward
+    onPressSkipBackward,
+    getDefaultCoverImageSource
   } = props
   const currentTrack = useSelector(selectCurrentTrack)
   const dispatch = useDispatch()
@@ -52,7 +45,7 @@ const PlayerModal = (props) => {
   const originalQueue = useSelector(selectOriginalQueue)
   const [isSliding, setIsSliding] = useState(false)
   const [slidingPosition, setSlidingPosition] = useState(0)
-  const [showPlaylistModal, setShowPlaylistModal] = useState(false)
+  const [showQueueModal, setShowQueueModal] = useState(false)
   const [currentTrackIdx, setCurrentTrackIdx] = useState(0)
 
   // currentTrack变更时获取新track在queue中的index
@@ -117,7 +110,7 @@ const PlayerModal = (props) => {
       await TrackPlayer.add([...firstPart], 0)
       await TrackPlayer.add([...secondPart])
 
-      dispatch(setCurrentQueue(originalQueue))
+      dispatch(setCurrentQueue([...originalQueue]))
       setCurrentTrackIdx(trackIndexInOriginalQueue)
     } catch (e) {
       console.log(e)
@@ -146,8 +139,7 @@ const PlayerModal = (props) => {
       // 播放列表中没有歌曲或只有一首歌曲时，不需要重排列表
       if (!tempQueue.length || tempQueue.length === 1) return
 
-      // 因为setter是用[...action.payload]所以后续可以更改playerQueue而state不受影响
-      dispatch(setOriginalQueue(tempQueue))
+      dispatch(setOriginalQueue([...playerQueue]))
       const trackIndex = await TrackPlayer.getCurrentTrack()
 
       const trackArray = tempQueue.splice(trackIndex, 1)
@@ -187,14 +179,16 @@ const PlayerModal = (props) => {
   }
 
   const onPressPlaylist = async () => {
-    setShowPlaylistModal(true)
+    setShowQueueModal(true)
   }
+
+  const titleText = getDisplayTitleText(currentTrack)
 
   return (
     <Modal animationType="slide" visible={showPlayerModal} statusBarTranslucent>
       <StatusBar barStyle={'dark-content'} translucent={true} />
       <SafeAreaView style={styles.container}>
-        <ImageBackground
+        <FastImage
           style={[
             styles.backgroundImage,
             styles.blur,
@@ -202,6 +196,7 @@ const PlayerModal = (props) => {
           ]}
           blurRadius={20}
           source={coverImageSource}
+          defaultSource={getDefaultCoverImageSource()}
         >
           {Platform.OS === 'ios' && (
             <BlurView
@@ -224,8 +219,9 @@ const PlayerModal = (props) => {
               blurRadius={25}
               downsampleFactor={25}
             >
-              <Image
+              <FastImage
                 source={coverImageSource}
+                defaultSource={getDefaultCoverImageSource()}
                 style={[
                   styles.backgroundImage,
                   styles.blur,
@@ -256,7 +252,11 @@ const PlayerModal = (props) => {
             </Pressable>
           </View>
           <View style={styles.coverImageWrapper}>
-            <Image source={coverImageSource} style={styles.coverImage} />
+            <FastImage
+              source={coverImageSource}
+              style={styles.coverImage}
+              defaultSource={getDefaultCoverImageSource()}
+            />
           </View>
           <View
             style={[
@@ -266,7 +266,15 @@ const PlayerModal = (props) => {
           >
             <View style={styles.infoWrapper}>
               <View>
-                <Text style={styles.title}>{currentTrack ? currentTrack.title : '未在播放'}</Text>
+                <TextTicker
+                  style={styles.title}
+                  numberOfLines={1}
+                  bounceDelay={2000}
+                  bouncePadding={{ left: 0, right: 0 }}
+                  scrollSpeed={50}
+                >
+                  {titleText}
+                </TextTicker>
                 <Text style={styles.artist}>
                   {currentTrack ? `${currentTrack.artist} - ${currentTrack.date}` : ''}
                 </Text>
@@ -431,11 +439,11 @@ const PlayerModal = (props) => {
               </Pressable>
             </View>
           </View>
-        </ImageBackground>
+        </FastImage>
       </SafeAreaView>
       <PlaylistModal
-        showPlaylistModal={showPlaylistModal}
-        setShowPlaylistModal={setShowPlaylistModal}
+        showQueueModal={showQueueModal}
+        setShowQueueModal={setShowQueueModal}
         currentTrackIdx={currentTrackIdx}
       />
     </Modal>
@@ -480,8 +488,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8
   },
   coverImage: {
-    width: 320 * WIDTH_RATIO,
-    height: 320 * WIDTH_RATIO,
+    width: 330 * WIDTH_RATIO,
+    height: 330 * WIDTH_RATIO,
     borderRadius: 6
   },
   bottomHalfWrapper: {
@@ -497,7 +505,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28 * WIDTH_RATIO,
     fontWeight: '600',
-    color: Colors.black1
+    color: Colors.black1,
+    width: 310 * WIDTH_RATIO
   },
   artist: {
     fontSize: 18 * WIDTH_RATIO,

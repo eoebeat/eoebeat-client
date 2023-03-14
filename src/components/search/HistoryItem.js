@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native'
+import { Text, StyleSheet, Pressable } from 'react-native'
 import React from 'react'
 import { Colors, WIDTH_RATIO } from '../../styles/Styles'
 
 const HistoryItem = (props) => {
   const { searchText, onPress } = props
+
   return (
     <Pressable
       onPress={onPress}
