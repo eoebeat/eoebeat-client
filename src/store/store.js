@@ -5,6 +5,8 @@ import { persistReducer, persistStore } from 'redux-persist'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import thunk from 'redux-thunk'
 import assetReducer from './slices/assetSlice'
+import playlistsReducer from './slices/playlistSlice'
+import listTracksReducer from './slices/listTracksSlice'
 
 const playerPersistConfig = {
   key: 'player',
@@ -22,7 +24,9 @@ const rootPersistConfig = {
 const rootReducer = combineReducers({
   player: persistReducer(playerPersistConfig, playerReducer),
   search: searchReducer,
-  asset: assetReducer
+  asset: assetReducer,
+  playlists: playlistsReducer,
+  listTracks: listTracksReducer
 })
 
 const persistedReducer = persistReducer(rootPersistConfig, rootReducer)

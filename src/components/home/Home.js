@@ -8,7 +8,6 @@ import {
   selectCurrentTrack,
   setCurrentQueue,
   setOriginalQueue,
-  setCurrentTrack,
   setLoadChangeTrack,
   selectOriginalQueue
 } from '../../store/slices/playerSlice'
@@ -17,8 +16,6 @@ import PlaylistCard from './PlaylistCard'
 import MusicService from '../../services/music.service'
 import MusicItem from '../common/MusicItem'
 import Separator from '../common/Separator'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { Button } from '@rneui/themed'
 import {
   COLLECTION_TYPE,
   DEFAULT_COVER_NAME,
@@ -36,6 +33,7 @@ import {
 } from '../../store/slices/assetSlice'
 import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player'
 import MonthlyCard from './MonthlyCard'
+import { selectPlaylistById, setPlaylistImageUri } from '../../store/slices/playlistSlice'
 
 const Home = ({ navigation }) => {
   const tabBarHeight = useBottomTabBarHeight()
@@ -52,6 +50,7 @@ const Home = ({ navigation }) => {
   const originalQueue = useSelector(selectOriginalQueue)
   const defaultCoverUrls = useSelector(selectDefaultCoverUrls)
   const [monthlyCollection, setMonthlyCollection] = useState([])
+  const likedPlaylist = useSelector((state) => selectPlaylistById(state, 0))
 
   // 选择在主页面监听正在播放的歌曲，并对每个MusicItem执行函数得到它是否在播放
   // Instead of 在每个MusicItem内做监听
@@ -124,6 +123,7 @@ const Home = ({ navigation }) => {
       const coverUrls = urls.slice(HOME_PAGE_HEADER_ASSETS.length)
       dispatch(setHeaderImageUrls([...headerUrls]))
       dispatch(setDefaultCoverUrls([...coverUrls]))
+      dispatch(setPlaylistImageUri({ id: 0, newImageUri: headerUrls[0] }))
     } catch (e) {
       console.log('获取主页头图失败', e)
     }
@@ -136,21 +136,6 @@ const Home = ({ navigation }) => {
     } catch (e) {
       console.log('获取月度合集信息失败', e)
     }
-  }
-
-  const clear = async () => {
-    try {
-      await AsyncStorage.clear()
-    } catch (e) {
-      console.log(e)
-    }
-  }
-
-  const resetQueues = async () => {
-    await TrackPlayer.reset()
-    dispatch(setCurrentQueue([]))
-    dispatch(setOriginalQueue([]))
-    dispatch(setCurrentTrack(undefined))
   }
 
   const onPressItem = async (track) => {
@@ -241,15 +226,23 @@ const Home = ({ navigation }) => {
   const monthlyCardSeperator = () => <View style={{ width: 20 * WIDTH_RATIO }}></View>
 
   const listHeaderComponent = (
-    <View style={[styles.listHeaderContainer, { paddingTop: insets.top }]}>
+    <View style={[styles.listHeaderContainer, { paddingTop: insets.top + 20 * WIDTH_RATIO }]}>
       <Text style={styles.greetingText}>{greeting}</Text>
-      <Button onPress={clear} title="clear async storage" />
-      <Button onPress={resetQueues} title="reset queues" />
       <View style={styles.playlistCardsWrapper}>
         <View style={styles.playlistCardsSubWrapper}>
           <PlaylistCard
             title={'已收藏的歌曲'}
             cardImage={headerImageUrls && headerImageUrls.length ? headerImageUrls[0] : ''}
+            onPress={() =>
+              navigation.navigate('音乐库', {
+                screen: 'Playlist',
+                params: {
+                  playlistId: likedPlaylist.id,
+                  headerImageUri: likedPlaylist.imageUri,
+                  name: likedPlaylist.name
+                }
+              })
+            }
           />
           <PlaylistCard
             title={'莞儿'}
@@ -354,8 +347,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.white1,
     display: 'flex',
-    paddingHorizontal: 20 * WIDTH_RATIO,
-    paddingTop: 20 * WIDTH_RATIO
+    paddingHorizontal: 20 * WIDTH_RATIO
   },
   greetingText: {
     fontSize: 24,
@@ -364,7 +356,7 @@ const styles = StyleSheet.create({
   },
   playlistCardsWrapper: {
     display: 'flex',
-    marginTop: 30
+    marginTop: 20 * WIDTH_RATIO
   },
   playlistCardsSubWrapper: {
     display: 'flex',

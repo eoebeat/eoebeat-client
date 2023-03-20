@@ -17,7 +17,7 @@
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
                BuildableName = "mobileClient.app"
                BlueprintName = "mobileClient"
-               ReferencedContainer = "container:mobileClient.xcodeproj">
+               ReferencedContainer = "container:EOEBeat.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -35,7 +35,7 @@
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
                BuildableName = "mobileClientTests.xctest"
                BlueprintName = "mobileClientTests"
-               ReferencedContainer = "container:mobileClient.xcodeproj">
+               ReferencedContainer = "container:EOEBeat.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -57,7 +57,7 @@
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
             BuildableName = "mobileClient.app"
             BlueprintName = "mobileClient"
-            ReferencedContainer = "container:mobileClient.xcodeproj">
+            ReferencedContainer = "container:EOEBeat.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -74,7 +74,7 @@
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
             BuildableName = "mobileClient.app"
             BlueprintName = "mobileClient"
-            ReferencedContainer = "container:mobileClient.xcodeproj">
+            ReferencedContainer = "container:EOEBeat.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

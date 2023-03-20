@@ -1,8 +1,6 @@
 import { View, Text, StyleSheet, StatusBar, FlatList, Pressable, Platform } from 'react-native'
-import React, { useEffect, useRef, useState } from 'react'
-import { COLLECTION_TYPE, COLLECTION_PAGE_SIZE, SEARCH_ORDER } from '../../constants/Shared'
-import MusicService from '../../services/music.service'
-import { searchMusicResultConvert, shuffleArray } from '../../utils/shared'
+import React, { useRef, useState } from 'react'
+import { shuffleArray } from '../../utils/shared'
 import { Colors } from '../../styles/Styles'
 import ImageHeaderScrollView, { TriggeringView } from 'react-native-image-header-scroll-view'
 import { DEVICE_LOGIC_WIDTH, WIDTH_RATIO } from '../../styles/Styles'
@@ -25,96 +23,30 @@ import * as Animatable from 'react-native-animatable'
 import FastImage from 'react-native-fast-image'
 import TrackPlayer, { usePlaybackState, State, RepeatMode } from 'react-native-track-player'
 import { TrackRepeatMode } from '../../constants/Player'
+import {
+  selectListTracksByPlaylist,
+  selectListTracksByPlaylistTotal
+} from '../../store/slices/listTracksSlice'
+import ExtendedFooter from '../common/ExtendedFooter'
 
 const MIN_HEIGHT = Platform.OS === 'ios' ? 100 : 65
 const MAX_HEIGHT = 330
 
-const Collection = ({ route, navigation }) => {
-  const { type, label, headerImageUrl, description, title } = route.params
-  const [musicList, setMusicList] = useState([])
-  const [page, setPage] = useState(0)
-  const [totalNumMusic, setTotalNumMusic] = useState(0)
+const Playlist = ({ route, navigation }) => {
+  const { playlistId, headerImageUri, name } = route.params
+
+  const currentTrack = useSelector(selectCurrentTrack)
   const isItemPlaying = (track) => {
     if (currentTrack) return currentTrack.id === track.id
   }
-  const currentTrack = useSelector(selectCurrentTrack)
   const insets = useSafeAreaInsets()
   const navTitleView = useRef(null)
   const backBtnView = useRef(null)
-  const [searchOrder, setSearchOrder] = useState(SEARCH_ORDER.DateNewToOld)
   const originalQueue = useSelector(selectOriginalQueue)
   const playerState = usePlaybackState()
   const dispatch = useDispatch()
-
-  useEffect(() => {
-    getFirstPageMusic()
-  }, [])
-
-  useEffect(() => {
-    getFirstPageMusic()
-  }, [searchOrder])
-
-  const getFirstPageMusic = async () => {
-    try {
-      let res
-      if (type === COLLECTION_TYPE.Singer) {
-        res = await MusicService.searchMusic(
-          label,
-          { page: 0, size: COLLECTION_PAGE_SIZE },
-          searchOrder
-        )
-      } else {
-        res = await MusicService.fetchMusicInMonth(
-          label,
-          { page: 0, size: COLLECTION_PAGE_SIZE },
-          searchOrder
-        )
-      }
-      const convertedMusic = searchMusicResultConvert(res.items)
-      setPage(res.pageable.page)
-      setTotalNumMusic(res.pageable.total)
-      setMusicList(convertedMusic)
-    } catch (e) {
-      console.log(e)
-    }
-  }
-
-  // FlatList触底时触发
-  // First check是否为最后一页，如是则return
-  // fetch下一页的music并更新state
-  const getNextPageMusic = async () => {
-    try {
-      if ((page + 1) * COLLECTION_PAGE_SIZE >= totalNumMusic) return
-      let res
-      if (type === COLLECTION_TYPE.Singer) {
-        res = await MusicService.searchMusic(
-          label,
-          { page: page + 1, size: COLLECTION_PAGE_SIZE },
-          searchOrder
-        )
-      } else {
-        res = await MusicService.fetchMusicInMonth(
-          label,
-          { page: page + 1, size: COLLECTION_PAGE_SIZE },
-          searchOrder
-        )
-      }
-      const convertedMusic = searchMusicResultConvert(res.items)
-      setPage(res.pageable.page)
-      setTotalNumMusic(res.pageable.total)
-      setMusicList([...musicList, ...convertedMusic])
-    } catch (e) {
-      console.log(e)
-    }
-  }
-
-  const toggleSearchOrder = () => {
-    if (searchOrder === SEARCH_ORDER.DateNewToOld) {
-      setSearchOrder(SEARCH_ORDER.Hitcount)
-    } else {
-      setSearchOrder(SEARCH_ORDER.DateNewToOld)
-    }
-  }
+  const listTracks = useSelector((state) => selectListTracksByPlaylist(state, playlistId)).reverse()
+  const listTrackTotal = useSelector((state) => selectListTracksByPlaylistTotal(state, playlistId))
 
   const onPressItem = async (track) => {
     try {
@@ -179,19 +111,13 @@ const Collection = ({ route, navigation }) => {
 
   const onPressPlay = async () => {
     try {
-      let res
-      if (type === COLLECTION_TYPE.Singer) {
-        res = await MusicService.searchMusic(label, { page: 0, size: 10000 }, searchOrder)
-      } else {
-        res = await MusicService.fetchMusicInMonth(label, { page: 0, size: 10000 }, searchOrder)
-      }
-      const convertedMusic = searchMusicResultConvert(res.items)
+      const extractedTracks = listTracks.map((element) => element.track)
       await TrackPlayer.pause()
       await TrackPlayer.reset()
-      await TrackPlayer.add(convertedMusic)
+      await TrackPlayer.add(extractedTracks)
       dispatch(setLoadChangeTrack(true))
-      dispatch(setCurrentQueue([...convertedMusic]))
-      dispatch(setOriginalQueue([...convertedMusic]))
+      dispatch(setCurrentQueue([...extractedTracks]))
+      dispatch(setOriginalQueue([...extractedTracks]))
     } catch (e) {
       console.log('添加歌曲至播放列表错误', e)
     }
@@ -199,33 +125,31 @@ const Collection = ({ route, navigation }) => {
 
   const onPressShuffle = async () => {
     try {
-      let res
-      if (type === COLLECTION_TYPE.Singer) {
-        res = await MusicService.searchMusic(label, { page: 0, size: 10000 }, searchOrder)
-      } else {
-        res = await MusicService.fetchMusicInMonth(label, { page: 0, size: 10000 }, searchOrder)
-      }
-      const convertedMusic = searchMusicResultConvert(res.items)
+      const extractedTracks = listTracks.map((element) => element.track)
       await TrackPlayer.pause()
       await TrackPlayer.reset()
       await TrackPlayer.setRepeatMode(RepeatMode.Queue)
       dispatch(setTrackRepeatMode(TrackRepeatMode.Shuffle))
-      dispatch(setOriginalQueue([...convertedMusic]))
-      shuffleArray(convertedMusic)
-      await TrackPlayer.add(convertedMusic)
+      dispatch(setOriginalQueue([...extractedTracks]))
+      shuffleArray(extractedTracks)
+      await TrackPlayer.add(extractedTracks)
       dispatch(setLoadChangeTrack(true))
-      dispatch(setCurrentQueue([...convertedMusic]))
+      dispatch(setCurrentQueue([...extractedTracks]))
     } catch (e) {
       console.log('添加歌曲至随机播放错误', e)
     }
   }
 
   const renderItem = ({ item }) => (
-    <PlainMusicItem track={item} itemPlaying={isItemPlaying(item)} onPressItem={onPressItem} />
+    <PlainMusicItem
+      track={item.track}
+      itemPlaying={isItemPlaying(item.track)}
+      onPressItem={onPressItem}
+    />
   )
+
   const listHeader = () => (
     <View style={styles.listHeaderWrapper}>
-      {description && <Text style={styles.description}>{`${description}`}</Text>}
       <View style={styles.controllerWrapper}>
         <View style={styles.searchOrderWrapper}>
           <Pressable
@@ -233,12 +157,8 @@ const Collection = ({ route, navigation }) => {
               styles.listHeaderSearchOrderBtn,
               { opacity: pressed ? 0.6 : 1 }
             ]}
-            onPress={toggleSearchOrder}
           >
-            <Text style={styles.listHeaderSearchOrderText}>
-              {searchOrder === SEARCH_ORDER.DateNewToOld ? '最新' : '热门'}
-            </Text>
-            <Icon type="feather" name="menu" size={16} color={Colors.grey2} />
+            <Text style={styles.listHeaderSearchOrderText}>{`${listTrackTotal}首歌曲`}</Text>
           </Pressable>
         </View>
         <View style={styles.listHeaderBtnWrapper}>
@@ -272,7 +192,7 @@ const Collection = ({ route, navigation }) => {
         minHeight={MIN_HEIGHT * WIDTH_RATIO}
         renderHeader={() => (
           <FastImage
-            source={{ uri: headerImageUrl }}
+            source={{ uri: headerImageUri }}
             style={styles.headerImage}
             resizeMode={'cover'}
           >
@@ -296,7 +216,7 @@ const Collection = ({ route, navigation }) => {
                 backBtnView.current.fadeIn(400)
               }}
             >
-              <Text style={styles.foregroundTitle}>{title}</Text>
+              <Text style={styles.foregroundTitle}>{name}</Text>
             </TriggeringView>
           </View>
         )}
@@ -314,21 +234,20 @@ const Collection = ({ route, navigation }) => {
                 Platform.OS === 'android' && { top: 1 }
               ]}
               onPress={() => {
-                navigation.goBack()
+                navigation.popToTop()
               }}
             >
               <Icon type="feather" name="chevron-left" color={Colors.white1} size={26} />
             </Pressable>
-            <Text style={styles.navTitle}>{title}</Text>
+            <Text style={styles.navTitle}>{name}</Text>
           </Animatable.View>
         )}
         ScrollViewComponent={FlatList}
-        data={musicList}
+        data={listTracks}
         renderItem={renderItem}
         ItemSeparatorComponent={Separator}
-        ListFooterComponent={<Footer />}
+        ListFooterComponent={listTracks.length < 5 ? <ExtendedFooter /> : <Footer />}
         ListHeaderComponent={listHeader}
-        onEndReached={getNextPageMusic}
         showsVerticalScrollIndicator={false}
       ></ImageHeaderScrollView>
       <Animatable.View
@@ -340,12 +259,15 @@ const Collection = ({ route, navigation }) => {
       >
         <Pressable
           onPress={() => {
-            navigation.goBack()
+            navigation.popToTop()
           }}
         >
           <Icon type="feather" name="chevron-left" color={Colors.white1} size={26} />
         </Pressable>
       </Animatable.View>
+      <View>
+        <Text>hello</Text>
+      </View>
     </View>
   )
 }
@@ -403,11 +325,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between'
   },
-  description: {
-    fontSize: 13,
-    fontWeight: '300',
-    color: Colors.grey2
-  },
   listHeaderBtnWrapper: {
     display: 'flex',
     flexDirection: 'row',
@@ -433,4 +350,4 @@ const styles = StyleSheet.create({
   }
 })
 
-export default Collection
+export default Playlist

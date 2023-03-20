@@ -62,3 +62,6 @@ buck-out/
 # Ruby / CocoaPods
 /ios/Pods/
 /vendor/bundle/
+
+/.watchmanconfig
+/.watchman-cookie-Ians-MBP.home-780-14799

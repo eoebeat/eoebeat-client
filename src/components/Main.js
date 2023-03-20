@@ -1,4 +1,4 @@
-import { View, StyleSheet } from 'react-native'
+import { View, StyleSheet, Pressable } from 'react-native'
 import React, { useEffect } from 'react'
 import Player from './player/Player'
 import StartScreen from './StartScreen'
@@ -6,11 +6,10 @@ import {
   selectFinishedSetup,
   setFinishedSetup,
   selectBottomPosition,
-  setTrackRepeatMode,
   selectTrackRepeatMode
 } from '../store/slices/playerSlice'
 import { useSelector, useDispatch } from 'react-redux'
-import TrackPlayer, { RepeatMode } from 'react-native-track-player'
+import TrackPlayer, { Capability } from 'react-native-track-player'
 import { Colors } from '../styles/Styles'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import Home from './home/Home'
@@ -18,10 +17,13 @@ import Search from './search/Search'
 import Library from './library/Library'
 import LinearGradient from 'react-native-linear-gradient'
 import { Icon } from '@rneui/themed'
-import { TrackRepeatMode } from '../constants/Player'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import Collection from './collection/Collection'
+import Playlist from './playlist/Playlist'
+import Setting from './setting/Setting'
+import BackPressable from './common/BackPressable'
+import { Platform } from 'react-native'
 
 const Tab = createBottomTabNavigator()
 const Stack = createNativeStackNavigator()
@@ -45,6 +47,34 @@ const HomeStack = () => (
   </Stack.Navigator>
 )
 
+const LibraryStack = () => (
+  <Stack.Navigator initialRouteName="Library">
+    <Stack.Screen
+      name="Library"
+      component={Library}
+      options={{
+        headerShown: false
+      }}
+    />
+    <Stack.Screen
+      name="Playlist"
+      component={Playlist}
+      options={{
+        headerShown: false
+      }}
+    />
+    <Stack.Screen
+      name="Setting"
+      component={Setting}
+      options={{
+        headerTitle: '设置',
+        headerTintColor: Colors.black1,
+        headerLeft: () => <BackPressable />
+      }}
+    />
+  </Stack.Navigator>
+)
+
 const Main = () => {
   const finishedSetup = useSelector(selectFinishedSetup)
   const dispatch = useDispatch()
@@ -58,7 +88,18 @@ const Main = () => {
       try {
         if (!finishedSetup) {
           await TrackPlayer.setupPlayer({})
-          await TrackPlayer.updateOptions({ progressUpdateEventInterval: 1 })
+          await TrackPlayer.updateOptions({
+            progressUpdateEventInterval: 1,
+            capabilities: [
+              Capability.Play,
+              Capability.Pause,
+              Capability.SkipToNext,
+              Capability.SkipToPrevious,
+              Capability.Stop,
+              Capability.SeekTo
+            ],
+            compactCapabilities: [Capability.Play, Capability.Pause]
+          })
           await TrackPlayer.setRepeatMode(trackRepeatMode)
         }
         dispatch(setFinishedSetup(true))
@@ -97,7 +138,7 @@ const Main = () => {
                 } else if (route.name === '搜索') {
                   iconName = 'search'
                   return <Icon name={iconName} type="octicon" color={color} />
-                } else if (route.name === '库') {
+                } else if (route.name === '音乐库') {
                   iconName = 'library-music'
                   return <Icon name={iconName} type="material" color={color} />
                 }
@@ -108,12 +149,12 @@ const Main = () => {
           >
             <Tab.Screen name="主页" component={HomeStack} />
             <Tab.Screen name="搜索" component={Search} />
-            <Tab.Screen name="库" component={Library} />
+            <Tab.Screen name="音乐库" component={LibraryStack} />
           </Tab.Navigator>
           <View
             style={{
               position: 'absolute',
-              bottom: playerBottomPosition
+              bottom: Platform.OS === 'android' ? playerBottomPosition - 1 : playerBottomPosition
             }}
           >
             <Player />

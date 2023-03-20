@@ -3,11 +3,18 @@ import React from 'react'
 import { Overlay } from '@rneui/themed'
 import { Colors, WIDTH_RATIO } from '../../styles/Styles'
 
-const DeleteOverlay = (props) => {
-  const { showDeleteOverlay, toggleOverlay, clearSearchHistory } = props
+const SettingOverlay = (props) => {
+  const {
+    showSettingOverlay,
+    toggleOverlay,
+    overlayTitle,
+    overlayDescription,
+    onPressOverlayConfirm
+  } = props
   return (
-    <Overlay isVisible={showDeleteOverlay} overlayStyle={styles.overlay}>
-      <Text style={styles.title}>确认删除全部历史记录？</Text>
+    <Overlay isVisible={showSettingOverlay} overlayStyle={styles.overlay}>
+      <Text style={styles.title}>{overlayTitle}</Text>
+      {overlayDescription && <Text style={styles.overlayDescription}>{overlayDescription}</Text>}
       <View style={styles.pressablesWrapper}>
         <Pressable
           onPress={toggleOverlay}
@@ -21,7 +28,7 @@ const DeleteOverlay = (props) => {
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.pressable, { opacity: pressed ? 0.6 : 1 }]}
-          onPress={clearSearchHistory}
+          onPress={onPressOverlayConfirm}
         >
           <Text style={[styles.pressableText, styles.confirmText]}>确认</Text>
         </Pressable>
@@ -59,7 +66,7 @@ const styles = StyleSheet.create({
   pressableText: {
     fontSize: 16,
     textAlign: 'center',
-    paddingVertical: 10
+    paddingVertical: 10 * WIDTH_RATIO
   },
   cancelText: {
     fontWeight: '400',
@@ -68,7 +75,11 @@ const styles = StyleSheet.create({
   confirmText: {
     fontWeight: '400',
     color: Colors.pink1
+  },
+  overlayDescription: {
+    paddingHorizontal: 20 * WIDTH_RATIO,
+    paddingBottom: 20 * WIDTH_RATIO
   }
 })
 
-export default DeleteOverlay
+export default SettingOverlay
