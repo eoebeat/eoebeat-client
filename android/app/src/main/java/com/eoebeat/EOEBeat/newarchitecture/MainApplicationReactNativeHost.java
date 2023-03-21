@@ -1,4 +1,4 @@
-package com.mobileclient.newarchitecture;
+package com.eoebeat.EOEBeat.newarchitecture;
 
 import android.app.Application;
 import androidx.annotation.NonNull;
@@ -19,9 +19,9 @@ import com.facebook.react.fabric.CoreComponentsRegistry;
 import com.facebook.react.fabric.FabricJSIModuleProvider;
 import com.facebook.react.fabric.ReactNativeConfig;
 import com.facebook.react.uimanager.ViewManagerRegistry;
-import com.mobileclient.BuildConfig;
-import com.mobileclient.newarchitecture.components.MainComponentsRegistry;
-import com.mobileclient.newarchitecture.modules.MainApplicationTurboModuleManagerDelegate;
+import com.eoebeat.EOEBeat.BuildConfig;
+import com.eoebeat.EOEBeat.newarchitecture.components.MainComponentsRegistry;
+import com.eoebeat.EOEBeat.newarchitecture.modules.MainApplicationTurboModuleManagerDelegate;
 import java.util.ArrayList;
 import java.util.List;
 

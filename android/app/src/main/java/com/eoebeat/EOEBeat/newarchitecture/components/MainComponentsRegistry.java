@@ -1,4 +1,4 @@
-package com.mobileclient.newarchitecture.components;
+package com.eoebeat.EOEBeat.newarchitecture.components;
 
 import com.facebook.jni.HybridData;
 import com.facebook.proguard.annotations.DoNotStrip;

@@ -1,4 +1,4 @@
-package com.mobileclient;
+package com.eoebeat.EOEBeat;
 
 import android.os.Bundle;
 import com.facebook.react.ReactActivity;
