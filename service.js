@@ -1,29 +1,69 @@
 // service.js
 import TrackPlayer, { Event, RepeatMode } from 'react-native-track-player'
 import MusicService from './src/services/music.service'
-import { setCurrentProgress, setCurrentTrack } from './src/store/slices/playerSlice'
+import {
+  setCurrentProgress,
+  setCurrentTrack,
+  setLoadChangeTrack
+} from './src/store/slices/playerSlice'
 import { store } from './src/store/store'
 
 module.exports = async function () {
   // This service needs to be registered for the module to work
   // but it will be used later in the "Receiving Events" section
   try {
-    TrackPlayer.addEventListener(Event.RemotePlay, async () => {
-      await TrackPlayer.play()
+    TrackPlayer.addEventListener(Event.RemotePlay, () => {
+      TrackPlayer.play()
     })
 
-    TrackPlayer.addEventListener(Event.RemotePause, async () => {
-      await TrackPlayer.pause()
+    TrackPlayer.addEventListener(Event.RemotePause, () => {
+      TrackPlayer.pause()
     })
 
     TrackPlayer.addEventListener(Event.RemoteNext, async () => {
-      await TrackPlayer.skipToNext()
-      await TrackPlayer.play()
+      const queue = await TrackPlayer.getQueue()
+      if (!queue.length) return
+
+      const currentTrackIndex = await TrackPlayer.getCurrentTrack()
+      if (currentTrackIndex === queue.length - 1) {
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
+        await TrackPlayer.skip(0)
+        store.dispatch(setLoadChangeTrack(true))
+        // await TrackPlayer.play()
+      } else {
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
+        await TrackPlayer.skipToNext()
+        store.dispatch(setLoadChangeTrack(true))
+        // await TrackPlayer.play()
+      }
     })
 
     TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
-      await TrackPlayer.skipToPrevious()
-      await TrackPlayer.play()
+      const queue = await TrackPlayer.getQueue()
+      if (!queue.length) return
+
+      const currentTrackIndex = await TrackPlayer.getCurrentTrack()
+
+      if (currentTrackIndex === 0) {
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
+        await TrackPlayer.skip(queue.length - 1)
+        store.dispatch(setLoadChangeTrack(true))
+        // await TrackPlayer.play()
+      } else {
+        await TrackPlayer.pause()
+        await TrackPlayer.seekTo(0)
+        await TrackPlayer.skipToPrevious()
+        store.dispatch(setLoadChangeTrack(true))
+        // await TrackPlayer.play()
+      }
+    })
+
+    TrackPlayer.addEventListener(Event.RemoteSeek, ({ position }) => {
+      console.log('remote seek', position)
+      TrackPlayer.seekTo(position)
     })
 
     /**

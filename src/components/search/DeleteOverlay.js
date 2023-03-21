@@ -59,14 +59,15 @@ const styles = StyleSheet.create({
   pressableText: {
     fontSize: 16,
     textAlign: 'center',
-    paddingVertical: 10,
-    color: Colors.blue1
+    paddingVertical: 10
   },
   cancelText: {
-    fontWeight: '500'
+    fontWeight: '400',
+    color: Colors.black1
   },
   confirmText: {
-    fontWeight: '300'
+    fontWeight: '400',
+    color: Colors.pink1
   }
 })
 

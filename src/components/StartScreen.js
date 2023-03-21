@@ -1,11 +1,11 @@
-import { View, Text, StyleSheet } from 'react-native'
+import { View, StyleSheet, Image } from 'react-native'
 import React from 'react'
-import { Colors } from '../styles/Styles'
+import { Colors, WIDTH_RATIO } from '../styles/Styles'
 
 const StartScreen = () => {
   return (
     <View style={styles.container}>
-      <Text>Start screen</Text>
+      <Image style={styles.image} source={require('../../assets/images/logo.png')} />
     </View>
   )
 }
@@ -13,7 +13,13 @@ const StartScreen = () => {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: Colors.white1,
-    flex: 1
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  image: {
+    width: 220 * WIDTH_RATIO,
+    height: 220 * WIDTH_RATIO
   }
 })
 

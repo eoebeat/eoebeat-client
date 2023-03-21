@@ -1,7 +1,15 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
-import React, { memo } from 'react'
+import React, { memo, useMemo } from 'react'
 import { Colors, DEVICE_LOGIC_WIDTH, WIDTH_RATIO } from '../../styles/Styles'
 import { getDisplayTitleText } from '../../utils/shared'
+import { Icon } from '@rneui/themed'
+import { useDispatch, useSelector } from 'react-redux'
+import {
+  listTrackAdded,
+  listTrackRemoved,
+  selectAllListTrackIds,
+  selectListTracksByPlaylist
+} from '../../store/slices/listTracksSlice'
 
 export const PLAIN_MUSICITEM_HEIGHT = 60 * WIDTH_RATIO
 
@@ -10,7 +18,32 @@ const PlainMusicItem = (props) => {
   const titleColor = itemPlaying ? Colors.pink1 : Colors.black1
   const artistColor = itemPlaying ? Colors.pink1 : Colors.grey2
 
+  const dispatch = useDispatch()
+  const listTrackIds = useSelector(selectAllListTrackIds)
+  const tracksInLikePlaylist = useSelector((state) => selectListTracksByPlaylist(state, 0))
+  const isLiked = useMemo(() => {
+    if (tracksInLikePlaylist.find((value) => value.track.id === track.id)) {
+      return true
+    } else {
+      return false
+    }
+  }, [tracksInLikePlaylist])
+
   const titleText = getDisplayTitleText(track)
+
+  const onPressLike = () => {
+    dispatch(
+      listTrackAdded({
+        track,
+        playlistId: 0,
+        id: listTrackIds.length ? listTrackIds[listTrackIds.length - 1] + 1 : 0
+      })
+    )
+  }
+
+  const onPressNotLike = () => {
+    dispatch(listTrackRemoved({ trackId: track.id, playlistId: 0 }))
+  }
 
   return (
     <Pressable
@@ -26,6 +59,18 @@ const PlainMusicItem = (props) => {
             {`${track.artist} - ${track.date}`}
           </Text>
         </View>
+      </View>
+      <View style={styles.btnsWrapper}>
+        {!isLiked && (
+          <Pressable onPress={onPressLike}>
+            <Icon type="ionicon" name="heart-outline" size={20} color={Colors.grey1} />
+          </Pressable>
+        )}
+        {isLiked && (
+          <Pressable onPress={onPressNotLike}>
+            <Icon type="ionicon" name="heart" size={20} color={Colors.pink1} />
+          </Pressable>
+        )}
       </View>
     </Pressable>
   )
@@ -59,7 +104,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-evenly',
     height: PLAIN_MUSICITEM_HEIGHT,
     paddingVertical: 3 * WIDTH_RATIO,
-    flex: 1
+    width: 240 * WIDTH_RATIO
   },
   title: {
     color: Colors.black1,
@@ -72,6 +117,10 @@ const styles = StyleSheet.create({
     color: Colors.grey2,
     fontSize: 13,
     fontWeight: '300'
+  },
+  btnsWrapper: {
+    display: 'flex',
+    flexDirection: 'row'
   }
 })
 

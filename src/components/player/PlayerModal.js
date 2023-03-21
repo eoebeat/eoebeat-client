@@ -1,5 +1,15 @@
-import { View, Text, Modal, StyleSheet, Pressable, Platform, Image, StatusBar } from 'react-native'
-import React, { useState, useEffect } from 'react'
+import {
+  View,
+  Text,
+  Modal,
+  StyleSheet,
+  Pressable,
+  Platform,
+  Image,
+  StatusBar,
+  Easing
+} from 'react-native'
+import React, { useState, useEffect, useMemo } from 'react'
 import { SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context'
 import {
   Colors,
@@ -25,6 +35,12 @@ import { TrackRepeatMode } from '../../constants/Player'
 import PlaylistModal from './QueueModal'
 import FastImage from 'react-native-fast-image'
 import TextTicker from 'react-native-text-ticker'
+import {
+  selectAllListTrackIds,
+  selectListTracksByPlaylist,
+  listTrackAdded,
+  listTrackRemoved
+} from '../../store/slices/listTracksSlice'
 
 const PlayerModal = (props) => {
   const {
@@ -47,6 +63,17 @@ const PlayerModal = (props) => {
   const [slidingPosition, setSlidingPosition] = useState(0)
   const [showQueueModal, setShowQueueModal] = useState(false)
   const [currentTrackIdx, setCurrentTrackIdx] = useState(0)
+
+  const listTrackIds = useSelector(selectAllListTrackIds)
+  const tracksInLikePlaylist = useSelector((state) => selectListTracksByPlaylist(state, 0))
+  const isLiked = useMemo(() => {
+    if (!currentTrack) return false
+    if (tracksInLikePlaylist.find((value) => value.track.id === currentTrack.id)) {
+      return true
+    } else {
+      return false
+    }
+  }, [tracksInLikePlaylist])
 
   // currentTrack变更时获取新track在queue中的index
   useEffect(() => {
@@ -184,6 +211,20 @@ const PlayerModal = (props) => {
 
   const titleText = getDisplayTitleText(currentTrack)
 
+  const onPressLike = () => {
+    dispatch(
+      listTrackAdded({
+        track: currentTrack,
+        playlistId: 0,
+        id: listTrackIds.length ? listTrackIds[listTrackIds.length - 1] + 1 : 0
+      })
+    )
+  }
+
+  const onPressNotLike = () => {
+    dispatch(listTrackRemoved({ trackId: currentTrack.id, playlistId: 0 }))
+  }
+
   return (
     <Modal animationType="slide" visible={showPlayerModal} statusBarTranslucent>
       <StatusBar barStyle={'dark-content'} translucent={true} />
@@ -200,7 +241,6 @@ const PlayerModal = (props) => {
         >
           {Platform.OS === 'ios' && (
             <BlurView
-              // style={[styles.blurView, Platform.OS === 'android' && styles.androidBlur]}
               style={styles.blurView}
               blurType="xlight"
               blurAmount={50}
@@ -220,6 +260,7 @@ const PlayerModal = (props) => {
               downsampleFactor={25}
             >
               <FastImage
+                fallback={true}
                 source={coverImageSource}
                 defaultSource={getDefaultCoverImageSource()}
                 style={[
@@ -272,6 +313,8 @@ const PlayerModal = (props) => {
                   bounceDelay={2000}
                   bouncePadding={{ left: 0, right: 0 }}
                   scrollSpeed={50}
+                  easing={Easing.linear}
+                  marqueeDelay={4000}
                 >
                   {titleText}
                 </TextTicker>
@@ -279,15 +322,22 @@ const PlayerModal = (props) => {
                   {currentTrack ? `${currentTrack.artist} - ${currentTrack.date}` : ''}
                 </Text>
               </View>
-              <Pressable>
-                <Icon
-                  type="ionicon"
-                  name="heart-outline"
-                  size={30 * WIDTH_RATIO}
-                  style={styles.notFavorite}
-                  color={Colors.grey2}
-                />
-              </Pressable>
+              {!isLiked && (
+                <Pressable onPress={onPressLike}>
+                  <Icon
+                    type="ionicon"
+                    name="heart-outline"
+                    size={30 * WIDTH_RATIO}
+                    style={styles.notFavorite}
+                    color={Colors.grey2}
+                  />
+                </Pressable>
+              )}
+              {isLiked && (
+                <Pressable onPress={onPressNotLike}>
+                  <Icon type="ionicon" name="heart" size={30 * WIDTH_RATIO} color={Colors.pink1} />
+                </Pressable>
+              )}
             </View>
             <View style={styles.sliderWrapper}>
               <Slider

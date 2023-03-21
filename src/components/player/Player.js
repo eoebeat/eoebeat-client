@@ -1,8 +1,8 @@
-import { View, StyleSheet, Pressable, Text, Platform } from 'react-native'
+import { View, StyleSheet, Pressable, Text, Platform, Easing } from 'react-native'
 import React, { useEffect, useMemo, useState } from 'react'
 import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player'
 import { useSelector, useDispatch } from 'react-redux'
-import { Colors, DEVICE_LOGIC_WIDTH, HEIGHT_RATIO, WIDTH_RATIO } from '../../styles/Styles'
+import { Colors, DEVICE_LOGIC_WIDTH, WIDTH_RATIO } from '../../styles/Styles'
 import { Icon } from '@rneui/themed'
 import { BlurView } from '@react-native-community/blur'
 import {
@@ -69,8 +69,6 @@ const Player = () => {
     if (!currentTrack) {
       return require('../../../assets/cover/未在播放.png')
     }
-    console.log(currentTrack.url)
-    console.log(currentTrack.artwork)
     return { uri: currentTrack.artwork }
   }, [currentTrack])
 
@@ -205,6 +203,8 @@ const Player = () => {
                     numberOfLines={1}
                     bounceSpeed={100}
                     bounceDelay={2000}
+                    easing={Easing.linear}
+                    marqueeDelay={4000}
                     scrollSpeed={50}
                     bouncePadding={{ left: 0, right: 0 }}
                   >
@@ -225,7 +225,7 @@ const Player = () => {
                   <Icon
                     name="play"
                     type="ionicon"
-                    size={30 * HEIGHT_RATIO}
+                    size={30 * WIDTH_RATIO}
                     color={Colors.black1}
                     style={styles.controllerIcon}
                   />
@@ -239,7 +239,7 @@ const Player = () => {
                   <Icon
                     name="pause"
                     type="ionicon"
-                    size={30 * HEIGHT_RATIO}
+                    size={30 * WIDTH_RATIO}
                     color={Colors.black1}
                     style={styles.controllerIcon}
                   />
@@ -249,7 +249,7 @@ const Player = () => {
                 style={({ pressed }) => [
                   {
                     opacity: pressed ? 0.6 : 1,
-                    marginLeft: 8 * WIDTH_RATIO
+                    marginLeft: 12 * WIDTH_RATIO
                   }
                 ]}
                 onPressOut={onPressSkipForward}
@@ -257,7 +257,7 @@ const Player = () => {
                 <Icon
                   name="play-skip-forward"
                   type="ionicon"
-                  size={30 * HEIGHT_RATIO}
+                  size={30 * WIDTH_RATIO}
                   color={Colors.grey2}
                   style={styles.controllerIcon}
                 />
@@ -281,17 +281,19 @@ const Player = () => {
   )
 }
 
+const PLAYER_HEIGHT = 66
+
 const styles = StyleSheet.create({
   container: {
     width: DEVICE_LOGIC_WIDTH,
-    height: 58 * HEIGHT_RATIO,
+    height: PLAYER_HEIGHT * WIDTH_RATIO,
     display: 'flex',
     alignItems: 'center',
     backgroundColor: 'transparent'
   },
   playerPressable: {
     width: DEVICE_LOGIC_WIDTH,
-    height: 58 * HEIGHT_RATIO,
+    height: PLAYER_HEIGHT * WIDTH_RATIO,
     display: 'flex',
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -307,8 +309,8 @@ const styles = StyleSheet.create({
     marginLeft: 20 * WIDTH_RATIO
   },
   coverImage: {
-    height: 46 * HEIGHT_RATIO,
-    width: 46 * HEIGHT_RATIO,
+    height: 50 * WIDTH_RATIO,
+    width: 50 * WIDTH_RATIO,
     borderRadius: 6
   },
   textWrapper: {
@@ -321,13 +323,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row'
   },
   songName: {
-    fontSize: 16 * HEIGHT_RATIO,
+    fontSize: 16 * WIDTH_RATIO,
     color: Colors.black1,
-    marginBottom: 4 * HEIGHT_RATIO,
-    width: 226 * WIDTH_RATIO
+    marginBottom: 4 * WIDTH_RATIO,
+    width: 218 * WIDTH_RATIO
   },
   performer: {
-    fontSize: 12 * HEIGHT_RATIO,
+    fontSize: 12 * WIDTH_RATIO,
     fontWeight: '200',
     color: Colors.black1
   },
@@ -341,7 +343,7 @@ const styles = StyleSheet.create({
   },
   backgroundImage: {
     width: DEVICE_LOGIC_WIDTH,
-    height: 58 * HEIGHT_RATIO,
+    height: PLAYER_HEIGHT * WIDTH_RATIO,
     display: 'flex',
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -352,7 +354,7 @@ const styles = StyleSheet.create({
   },
   blurView: {
     width: DEVICE_LOGIC_WIDTH,
-    height: 58 * HEIGHT_RATIO,
+    height: PLAYER_HEIGHT * WIDTH_RATIO,
     position: 'absolute'
   },
   androidBlur: {

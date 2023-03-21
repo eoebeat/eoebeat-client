@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, FlatList, Pressable } from 'react-native'
+import { View, Text, StyleSheet, TextInput, FlatList, Pressable, StatusBar } from 'react-native'
 import React, { useMemo, useState } from 'react'
 import { Colors, WIDTH_RATIO } from '../../styles/Styles'
 import { Icon } from '@rneui/themed'
@@ -242,7 +242,8 @@ const Search = () => {
   )
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 20 * WIDTH_RATIO }]}>
+      <StatusBar barStyle={'dark-content'} translucent={true} />
       <View style={styles.headerWrapper}>
         <Text style={styles.title}>搜索</Text>
         <View style={styles.searchBarWrapper}>
@@ -253,6 +254,7 @@ const Search = () => {
             placeholderTextColor={Colors.grey1}
             keyboardType="default"
             returnKeyType="search"
+            numberOfLines={1}
             autoCorrect={false}
             autoCapitalize="none"
             onChangeText={setSearchValue}
@@ -301,8 +303,7 @@ const Search = () => {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: Colors.white1,
-    flex: 1,
-    paddingTop: 20 * WIDTH_RATIO
+    flex: 1
   },
   headerWrapper: {
     paddingHorizontal: 20 * WIDTH_RATIO
@@ -314,7 +315,7 @@ const styles = StyleSheet.create({
   },
   searchBarWrapper: {
     backgroundColor: Colors.lightgrey2,
-    height: 36,
+    height: 36 * WIDTH_RATIO,
     display: 'flex',
     flexDirection: 'row',
     borderRadius: 6,
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    height: 30,
+    height: 36 * WIDTH_RATIO,
     marginLeft: 6 * WIDTH_RATIO
   },
   noResultWrapper: {

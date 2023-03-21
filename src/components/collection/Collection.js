@@ -225,11 +225,7 @@ const Collection = ({ route, navigation }) => {
   )
   const listHeader = () => (
     <View style={styles.listHeaderWrapper}>
-      {description && (
-        <Text
-          style={styles.description}
-        >{`${description}。五个姑娘梦想起航的时刻，让我们一起回望最初的歌。`}</Text>
-      )}
+      {description && <Text style={styles.description}>{`${description}`}</Text>}
       <View style={styles.controllerWrapper}>
         <View style={styles.searchOrderWrapper}>
           <Pressable
